@@ -219,7 +219,7 @@ scenario.step('configure base URL', function() {
 _.each(rules, function(rule, ref) {
 	scenario.step('retrieve rule: ' + ref, function() {
 		return this.get({
-			url: '/rules',
+			url: '/v1/rules',
 			qs: {
 				reference: ref
 			}
@@ -243,7 +243,7 @@ _.each(rules, function(rule, ref) {
 
 		if (retrievedRules.length == 1) {
 			return this.patch({
-				url: '/rules/' + retrievedRules[0].id,
+				url: '/v1/rules/' + retrievedRules[0].id,
 				body: {
 					enabled: enabled,
 					then: {
@@ -257,7 +257,7 @@ _.each(rules, function(rule, ref) {
 			rule.enabled = enabled;
 
 			return this.post({
-				url: '/rules',
+				url: '/v1/rules',
 				body: rule
 			});
 		}
