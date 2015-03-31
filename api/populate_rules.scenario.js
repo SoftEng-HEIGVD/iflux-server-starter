@@ -210,6 +210,14 @@ var rules = {
 
 }
 
+scenario.step('parameters', function() {
+	console.log("iFLUX URL: %s", this.param('iflux_url'));
+	console.log("Slack URL: %s", this.param('slack_url'));
+	console.log("Metrics URL: %s", this.param('metrics_url'));
+	console.log("Viewer URL: %s", this.param('viewer_url'));
+	console.log("Slack is enabled: %s", this.param('enable_slack'));
+});
+
 scenario.step('configure base URL', function() {
 	return this.configure({
 		baseUrl: this.param('iflux_url')
