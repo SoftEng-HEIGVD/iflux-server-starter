@@ -356,6 +356,10 @@ function extractId(response) {
 	return parseInt(locationParts[locationParts.length - 1]);
 }
 
+function extractGenId(response) {
+	return response.headers['x-iflux-generated-id'];
+}
+
 function jwtRequestFilterFactory(jwtToken) {
 	return function(requestOptions) {
 		requestOptions.headers = {
@@ -518,6 +522,7 @@ function findEventType(eventType) {
 		.step('check event type found: ' + eventType.data.name, function(response) {
 			if (response.statusCode == 200 && response.body.length == 1) {
 				eventType.id = response.body[0].id;
+				eventType.genId = response.body[0].eventTypeId;
 				console.log('event type found with id: %s'.green, eventType.id);
 
 				return iterateEventTypes();
@@ -542,6 +547,7 @@ function createEventType(eventType) {
 		})
 		.step('check event type created for: ' + eventType.data.name, function(response) {
 			eventType.id = extractId(response);
+			eventType.genId = extractGenId(response);
 			console.log('event type created with id: %s'.green, eventType.id);
 
 			return iterateEventTypes();
@@ -567,6 +573,7 @@ function findEventSourceInstance(eventSourceInstance) {
 		.step('check event source instance found: ' + eventSourceInstance.data.name, function(response) {
 			if (response.statusCode == 200 && response.body.length == 1) {
 				eventSourceInstance.id = response.body[0].id;
+				eventSourceInstance.genId = response.body[0].eventSourceInstanceId;
 				console.log('event source instance found with id: %s'.green, eventSourceInstance.id);
 
 				return iterateEventSourceInstances();
@@ -594,6 +601,7 @@ function createEventSourceInstance(eventSourceInstance) {
 		})
 		.step('check event source instance created for: ' + eventSourceInstance.data.name, function(response) {
 			eventSourceInstance.id = extractId(response);
+			eventSourceInstance.genId = extractGenId(response);
 			console.log('event source instance created with id: %s'.green, eventSourceInstance.id);
 
 			return iterateEventSourceInstances();
@@ -670,6 +678,7 @@ function findActionType(actionType) {
 		.step('check action type found: ' + actionType.data.name, function(response) {
 			if (response.statusCode == 200 && response.body.length == 1) {
 				actionType.id = response.body[0].id;
+				actionType.genid = response.body[0].actionTypeId;
 				console.log('action type found with id: %s'.green, actionType.id);
 
 				return iterateActionTypes();
@@ -694,6 +703,7 @@ function createActionType(actionType) {
 		})
 		.step('check action type created for: ' + actionType.data.name, function(response) {
 			actionType.id = extractId(response);
+			actionType.genId = extractGenId(response);
 			console.log('action type created with id: %s'.green, actionType.id);
 
 			return iterateActionTypes();
@@ -706,6 +716,7 @@ function iterateActionTargetInstances() {
 	}
 	else {
 		// TODO: Do something for rules
+		return logging();
 	}
 }
 
@@ -719,6 +730,7 @@ function findActionTargetInstance(actionTargetInstance) {
 		.step('check action target instance found: ' + actionTargetInstance.data.name, function(response) {
 			if (response.statusCode == 200 && response.body.length == 1) {
 				actionTargetInstance.id = response.body[0].id;
+				actionTargetInstance.genId = response.body[0].actionTargetInstanceId;
 				console.log('action target instance found with id: %s'.green, actionTargetInstance.id);
 
 				return iterateActionTargetInstances();
@@ -747,9 +759,50 @@ function createActionTargetInstance(actionTargetInstance) {
 		.step('check action target instance created for: ' + actionTargetInstance.data.name, function(response) {
 			console.log(response.body);
 			actionTargetInstance.id = extractId(response);
+			actionTargetinstance.genId = extractGenId(response);
 			console.log('action target instance created with id: %s'.green, actionTargetInstance.id);
 
 			return iterateActionTargetInstances();
+		});
+}
+
+
+
+
+
+
+
+
+
+
+
+
+function logging() {
+	return scenario
+		.step('logging', function() {
+			console.log('event source templates');
+			console.log(eventSourceTemplates);
+			console.log('------------------------');
+
+			console.log('event types');
+			console.log(eventTypes);
+			console.log('------------------------');
+
+			console.log('event source instances');
+			console.log(eventSourceInstances);
+			console.log('------------------------');
+
+			console.log('action target templates');
+			console.log(actionTargetTemplates);
+			console.log('------------------------');
+
+			console.log('action types');
+			console.log(actionTypes);
+			console.log('------------------------');
+
+			console.log('action target instances');
+			console.log(actionTargetInstances);
+			console.log('------------------------');
 		});
 }
 
