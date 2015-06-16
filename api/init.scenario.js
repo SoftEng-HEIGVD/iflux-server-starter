@@ -831,7 +831,7 @@ function createActionTargetInstance(actionTargetInstance) {
 		})
 		.step('check action target instance created for: ' + actionTargetInstance.data.name, function(response) {
 			actionTargetInstance.id = extractId(response);
-			actionTargetinstance.genId = extractGenId(response);
+			actionTargetInstance.genId = extractGenId(response);
 			console.log('action target instance created with id: %s'.green, actionTargetInstance.id);
 
 			return iterateActionTargetInstances();
