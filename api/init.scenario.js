@@ -261,7 +261,7 @@ var eventTypes = new Iterator([{
 	data: {
 		name: 'Publibike movement event',
 		description: 'Represent a movement in the stock of bikes at any station',
-		type: function() { return this.param('iflux_schemas_url') + '/publibikeMovement'; },
+		type: function() { return this.param('iflux_schemas_url') + '/eventTypes/publibikeMovement'; },
 		schema: {
 			$schema: 'http://json-schema.org/draft-04/schema#',
 	    type: 'object',
@@ -361,7 +361,7 @@ var actionTypes = new Iterator([{
 	data: {
 	  name: 'Slack messages',
 	  description: 'Send a message to slack.',
-		type: function() { return this.param('iflux_schemas_url') + '/slackMessageSending'; },
+		type: function() { return this.param('iflux_schemas_url') + '/actionTypes/slackMessageSending'; },
 	  schema: {
 	    $schema: 'http://json-schema.org/draft-04/schema#',
 	    type: 'object',
