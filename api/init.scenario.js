@@ -20,6 +20,10 @@ scenario.addParam('iflux_api_url', {
 	default: process.env.IFLUX_API_URL
 });
 
+scenario.addParam('iflux_schemas_url', {
+	default: process.env.IFLUX_SCHEMAS_URL
+});
+
 scenario.addParam('iflux_admin_user', {
 	default: process.env.IFLUX_ADMIN_USER
 });
@@ -257,6 +261,7 @@ var eventTypes = new Iterator([{
 	data: {
 		name: 'Publibike movement event',
 		description: 'Represent a movement in the stock of bikes at any station',
+		type: function() { return this.param('iflux_schemas_url') + '/publibikeMovement'; },
 		schema: {
 			$schema: 'http://json-schema.org/draft-04/schema#',
 	    type: 'object',
@@ -596,7 +601,6 @@ function findEventType(eventType) {
 		.step('check event type found: ' + eventType.data.name, function(response) {
 			if (response.statusCode == 200 && response.body.length == 1) {
 				eventType.id = response.body[0].id;
-				eventType.genId = response.body[0].eventTypeId;
 				console.log('event type found with id: %s'.green, eventType.id);
 
 				return iterateEventTypes();
@@ -621,7 +625,6 @@ function createEventType(eventType) {
 		})
 		.step('check event type created for: ' + eventType.data.name, function(response) {
 			eventType.id = extractId(response);
-			eventType.genId = extractGenId(response);
 			console.log('event type created with id: %s'.green, eventType.id);
 
 			return iterateEventTypes();
@@ -990,6 +993,10 @@ scenario
 
 			console.log(actionTargetInstance);
 		}, this);
+
+		_.each(eventTypes.data, function(eventType) {
+			eventType.data.type = _.bind(eventType.data.type, this)();
+		}, this)
 	})
 ;
 
