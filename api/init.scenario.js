@@ -17,7 +17,7 @@ var scenario = new copilot.Scenario({
 });
 
 scenario.addParam('iflux_api_url', {
-	default: process.env.IFLUX_API_URL
+	default: process.env.COMMON_IFLUX_API_URL
 });
 
 scenario.addParam('iflux_schemas_url', {
