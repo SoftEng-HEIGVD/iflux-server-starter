@@ -32,6 +32,10 @@ scenario.addParam('slack_url', {
 	default: process.env.SLACK_GATEWAY_URL
 });
 
+scenario.addParam('slack_bot_token', {
+	default: process.env.SLACK_GATEWAY_IFLUX_BOT_TOKEN
+});
+
 //scenario.addParam('metrics_url', {
 //	default: process.env.IFLUXMETRICS_SERVER_URL || 'http://ifluxmetrics:3002'
 //});
@@ -237,6 +241,10 @@ function Iterator(data) {
 	};
 }
 
+// ############################################################################################
+// START OF DATA
+// ############################################################################################
+
 var eventSourceTemplates = new Iterator([{
 	data: {
 		name: 'Publibike',
@@ -304,7 +312,7 @@ var actionTargetTemplates = new Iterator([{
 	        }
 	      },
 	      additionalProperties: false,
-	      required: [ 'botId' ]
+	      required: [ 'token' ]
 	    },
 	    url: function() { return this.param('slack_url') + '/configure'; }
 	  },
@@ -330,6 +338,18 @@ var actionTypes = new Iterator([{
 	  }
 	}
 }]);
+
+var actionTargetInstances = new Iterator([{
+	template: actionTargetTemplates.data[0],
+  data: {
+	  name: 'iFLUX Slack Gateway Instance',
+	  configuration: function() { return { token: this.param('slack_bot_token') }; }
+  }
+}]);
+
+// ############################################################################################
+// END OF DATA
+// ############################################################################################
 
 function extractId(response) {
 	var locationParts = response.headers.location.split('/');
@@ -636,7 +656,7 @@ function iterateActionTypes() {
 		return findActionType(actionTypes.next());
 	}
 	else {
-		//iterateActionSourceInstances();
+		return iterateActionTargetInstances();
 	}
 }
 
@@ -680,7 +700,58 @@ function createActionType(actionType) {
 		});
 }
 
+function iterateActionTargetInstances() {
+	if (actionTargetInstances.hasNext()) {
+		return findActionTargetInstance(actionTargetInstances.next());
+	}
+	else {
+		// TODO: Do something for rules
+	}
+}
 
+function findActionTargetInstance(actionTargetInstance) {
+	return scenario
+		.step('find action target instance: ' + actionTargetInstance.data.name, function() {
+			return this.get({
+				url: '/actionTargetInstances?actionTargetTemplateId=' + actionTargetInstance.template.id + '&name=' + actionTargetInstance.data.name
+			});
+		})
+		.step('check action target instance found: ' + actionTargetInstance.data.name, function(response) {
+			if (response.statusCode == 200 && response.body.length == 1) {
+				actionTargetInstance.id = response.body[0].id;
+				console.log('action target instance found with id: %s'.green, actionTargetInstance.id);
+
+				return iterateActionTargetInstances();
+			}
+			else {
+				console.log('action target instance: %s not found.'.yellow, actionTargetInstance.data.name);
+				return createActionTargetInstance(actionTargetInstance);
+			}
+		})
+}
+
+function createActionTargetInstance(actionTargetInstance) {
+	return scenario
+		.step('try to create action target instance: ' + actionTargetInstance.data.name, function() {
+			return this.post({
+				url: '/actionTargetInstances',
+				body: _.extend(actionTargetInstance.data, {
+					organizationId: organizationId,
+					actionTargetTemplateId: actionTargetInstance.template.id
+				}),
+				expect: {
+					statusCode: 201
+				}
+			});
+		})
+		.step('check action target instance created for: ' + actionTargetInstance.data.name, function(response) {
+			console.log(response.body);
+			actionTargetInstance.id = extractId(response);
+			console.log('action target instance created with id: %s'.green, actionTargetInstance.id);
+
+			return iterateActionTargetInstances();
+		});
+}
 
 
 
@@ -710,6 +781,14 @@ scenario
 			if (_.isFunction(actionTargetTemplate.data.target.url)) {
 				actionTargetTemplate.data.target.url = _.bind(actionTargetTemplate.data.target.url, this)();
 			}
+		}, this);
+
+		_.each(actionTargetInstances.data, function(actionTargetInstance) {
+			if (actionTargetInstance.data.configuration && _.isFunction(actionTargetInstance.data.configuration)) {
+				actionTargetInstance.data.configuration = _.bind(actionTargetInstance.data.configuration, this)();
+			}
+
+			console.log(actionTargetInstance);
 		}, this);
 	})
 ;
