@@ -264,29 +264,34 @@ var eventTypes = new Iterator([{
 				terminalId: {
 					type: 'string'
 				},
-				name: {
-					type: 'string'
-				},
-				infotext: {
-					type: 'string'
-				},
-				zip: {
-					type: 'string'
-				},
-				city: {
-					type: 'string'
-				},
-				country: {
-					type: 'string'
-				},
-				lat: {
-					type: 'number'
-				},
-				lng: {
-					type: 'number'
-				},
-				image: {
-					type: 'string'
+				terminal: {
+					type: 'object',
+					properties: {
+						name: {
+							type: 'string'
+						},
+						infotext: {
+							type: 'string'
+						},
+						zip: {
+							type: 'string'
+						},
+						city: {
+							type: 'string'
+						},
+						country: {
+							type: 'string'
+						},
+						lat: {
+							type: 'number'
+						},
+						lng: {
+							type: 'number'
+						},
+						image: {
+							type: 'string'
+						}
+					}
 				},
 				old: {
 					type: 'object',
@@ -374,6 +379,7 @@ var actionTargetInstances = new Iterator([{
 var rules = new Iterator([{
 	data: {
 		name: 'Publibike annoucements on Slack',
+		description: 'From publibike annoucements, a message is sent to iFLUX Slack Gateway channel.',
 		active: true,
 		conditions: [{
 			description: 'Detect bike movements',
@@ -385,18 +391,20 @@ var rules = new Iterator([{
 			actionTypeId: actionTypes.data[0],
 			eventTypeId: eventTypes.data[0],
 			fn: {
-				expression: "return { channel: 'iflux', message: 'Only ' + event.properties.new.bikes + ' bike(s) available at the station ' + event.properties.terminal.name + ', ' + event.properties.terminal.street + ', ' + properties.terminal.zip + ' ' + properties.terminal.city '.' };",
+				expression: "return { channel: 'iflux', message: 'Only ' + event.properties.new.bikes + ' bike(s) available at the station ' + event.properties.terminal.name + ', ' + event.properties.terminal.street + ', ' + event.properties.terminal.zip + ' ' + event.properties.terminal.city + '.' };",
 				sample: {
 					event: {
 						terminalId: 'asdfghjkl',
-						name: 'Y-Parc',
-						infotext: 'Parc Scientifique - Yverdon',
-						zip: '1400',
-						city: 'Yverdon-les-Bains',
-						country: 'Switzerland',
-						lat: 46.764968,
-						lng: 6.646069,
-						image: '',
+						terminal: {
+							name: 'Y-Parc',
+							infotext: 'Parc Scientifique - Yverdon',
+							zip: '1400',
+							city: 'Yverdon-les-Bains',
+							country: 'Switzerland',
+							lat: 46.764968,
+							lng: 6.646069,
+							image: ''
+						},
 						old: {
 							freeholders: 10,
 							bikes: 3
@@ -822,7 +830,6 @@ function createActionTargetInstance(actionTargetInstance) {
 			});
 		})
 		.step('check action target instance created for: ' + actionTargetInstance.data.name, function(response) {
-			console.log(response.body);
 			actionTargetInstance.id = extractId(response);
 			actionTargetinstance.genId = extractGenId(response);
 			console.log('action target instance created with id: %s'.green, actionTargetInstance.id);
@@ -837,25 +844,25 @@ function prepareRules() {
 			_.each(rules.data, function(rule) {
 				_.each(rule.data.conditions, function(condition) {
 					if (condition.eventSourceInstanceId) {
-						condition.eventSourceInstanceId = condition.eventSourceInstanceId.genId;
+						condition.eventSourceInstanceId = condition.eventSourceInstanceId.id;
 					}
 
 					if (condition.eventTypeId) {
-						condition.eventTypeId = condition.eventTypeId.genId;
+						condition.eventTypeId = condition.eventTypeId.id;
 					}
 				}, this);
 
 				_.each(rule.data.transformations, function(transformation) {
 					if (transformation.actionTargetInstanceId) {
-						transformation.actionTargetInstanceId = transformation.actionTargetInstanceId.genId;
+						transformation.actionTargetInstanceId = transformation.actionTargetInstanceId.id;
 					}
 
 					if (transformation.actionTypeId) {
-						transformation.actionTypeId = transformation.actionTypeId.genId;
+						transformation.actionTypeId = transformation.actionTypeId.id;
 					}
 
 					if (transformation.eventTypeId) {
-						transformation.eventTypeId = transformation.eventTypeId.genId;
+						transformation.eventTypeId = transformation.eventTypeId.id;
 					}
 
 					if (transformation.fn && transformation.fn.sample && transformation.fn.sample.eventSourceTemplateId) {
@@ -865,16 +872,59 @@ function prepareRules() {
 			}, this);
 		});
 
-	//return logging();
+	return iterateRules();
 }
 
+function iterateRules() {
+	if (rules.hasNext()) {
+		return findRule(rules.next());
+	}
+	else {
+		return logging();
+	}
+}
 
+function findRule(rule) {
+	return scenario
+		.step('find rule: ' + rule.data.name, function() {
+			return this.get({
+				url: '/rules?name=' + rule.data.name
+			});
+		})
+		.step('check rule found: ' + rule.data.name, function(response) {
+			if (response.statusCode == 200 && response.body.length == 1) {
+				rule.id = response.body[0].id;
+				console.log('rule found with id: %s'.green, rule.id);
 
+				return iterateRules();
+			}
+			else {
+				console.log('rule: %s not found.'.yellow, rule.data.name);
+				return createRule(rule);
+			}
+		})
+}
 
+function createRule(rule) {
+	return scenario
+		.step('try to create rule: ' + rule.data.name, function() {
+			return this.post({
+				url: '/rules',
+				body: _.extend(rule.data, {
+					organizationId: organizationId
+				//}),
+				//expect: {
+				//	statusCode: 201
+				})
+			});
+		})
+		.step('check rule created for: ' + rule.data.name, function(response) {
+			rule.id = extractId(response);
+			console.log('rule created with id: %s'.green, rule.id);
 
-
-
-
+			return iterateRules();
+		});
+}
 
 function logging() {
 	return scenario
@@ -902,14 +952,12 @@ function logging() {
 			console.log('action target instances');
 			console.log(actionTargetInstances);
 			console.log('------------------------');
+
+			console.log('rules');
+			console.log(rules);
+			console.log('------------------------');
 		});
 }
-
-
-
-
-
-
 
 scenario
 	.step('configure base URL', function() {
