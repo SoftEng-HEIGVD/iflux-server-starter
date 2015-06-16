@@ -219,14 +219,6 @@ scenario.addParam('slack_url', {
 //
 //}
 
-scenario.step('parameters', function() {
-	console.log("iFLUX API URL: %s", this.param('iflux_api_url'));
-	console.log("Slack URL: %s", this.param('slack_url'));
-	//console.log("Metrics URL: %s", this.param('metrics_url'));
-	//console.log("Viewer URL: %s", this.param('viewer_url'));
-	//console.log("Slack is enabled: %s", this.param('enable_slack'));
-});
-
 var organizationId;
 
 function Iterator(data) {
@@ -322,6 +314,22 @@ var actionTargetTemplates = new Iterator([{
 	}
 }]);
 
+var actionTypes = new Iterator([{
+	template: actionTargetTemplates.data[0],
+	data: {
+	  name: 'Slack messages',
+	  description: 'Send a message to slack.',
+	  schema: {
+	    $schema: 'http://json-schema.org/draft-04/schema#',
+	    type: 'object',
+	    properties: {
+	      message: {
+	        type: 'string'
+	      }
+	    }
+	  }
+	}
+}]);
 
 function extractId(response) {
 	var locationParts = response.headers.location.split('/');
@@ -416,7 +424,7 @@ function createOrganization() {
 			organizationId = extractId(response);
 			console.log('organization created with id: %s'.green, organizationId);
 
-			iterateEventSourceTemplates();
+			return iterateEventSourceTemplates();
 		});
 }
 
@@ -425,7 +433,7 @@ function iterateEventSourceTemplates() {
 		return findEventSourceTemplate(eventSourceTemplates.next());
 	}
 	else {
-		iterateEventTypes();
+		return iterateEventTypes();
 	}
 }
 
@@ -476,7 +484,7 @@ function iterateEventTypes() {
 		return findEventType(eventTypes.next());
 	}
 	else {
-		iterateEventSourceInstances();
+		return iterateEventSourceInstances();
 	}
 }
 
@@ -577,7 +585,7 @@ function iterateActionTargetTemplates() {
 		return findActionTargetTemplate(actionTargetTemplates.next());
 	}
 	else {
-		// TODO: Next step
+		return iterateActionTypes();
 	}
 }
 
@@ -623,6 +631,54 @@ function createActionTargetTemplate(actionTargetTemplate) {
 		});
 }
 
+function iterateActionTypes() {
+	if (actionTypes.hasNext()) {
+		return findActionType(actionTypes.next());
+	}
+	else {
+		//iterateActionSourceInstances();
+	}
+}
+
+function findActionType(actionType) {
+	return scenario
+		.step('find action type: ' + actionType.data.name, function() {
+			return this.get({
+				url: '/actionTypes?actionTargetTemplateId=' + actionType.template.id + '&name=' + actionType.data.name
+			});
+		})
+		.step('check action type found: ' + actionType.data.name, function(response) {
+			if (response.statusCode == 200 && response.body.length == 1) {
+				actionType.id = response.body[0].id;
+				console.log('action type found with id: %s'.green, actionType.id);
+
+				return iterateActionTypes();
+			}
+			else {
+				console.log('action type: %s not found.'.yellow, actionType.data.name);
+				return createActionType(actionType);
+			}
+		})
+}
+
+function createActionType(actionType) {
+	return scenario
+		.step('try to create action type: ' + actionType.data.name, function() {
+			return this.post({
+				url: '/actionTypes',
+				body: _.extend(actionType.data, { actionTargetTemplateId: actionType.template.id }),
+				expect: {
+					statusCode: 201
+				}
+			});
+		})
+		.step('check action type created for: ' + actionType.data.name, function(response) {
+			actionType.id = extractId(response);
+			console.log('action type created with id: %s'.green, actionType.id);
+
+			return iterateActionTypes();
+		});
+}
 
 
 
