@@ -361,6 +361,7 @@ var actionTypes = new Iterator([{
 	data: {
 	  name: 'Slack messages',
 	  description: 'Send a message to slack.',
+		type: function() { return this.param('iflux_schemas_url') + '/slackMessageSending'; },
 	  schema: {
 	    $schema: 'http://json-schema.org/draft-04/schema#',
 	    type: 'object',
@@ -755,7 +756,6 @@ function findActionType(actionType) {
 		.step('check action type found: ' + actionType.data.name, function(response) {
 			if (response.statusCode == 200 && response.body.length == 1) {
 				actionType.id = response.body[0].id;
-				actionType.genId = response.body[0].actionTypeId;
 				console.log('action type found with id: %s'.green, actionType.id);
 
 				return iterateActionTypes();
@@ -780,7 +780,6 @@ function createActionType(actionType) {
 		})
 		.step('check action type created for: ' + actionType.data.name, function(response) {
 			actionType.id = extractId(response);
-			actionType.genId = extractGenId(response);
 			console.log('action type created with id: %s'.green, actionType.id);
 
 			return iterateActionTypes();
@@ -997,6 +996,11 @@ scenario
 		_.each(eventTypes.data, function(eventType) {
 			eventType.data.type = _.bind(eventType.data.type, this)();
 		}, this)
+
+		_.each(actionTypes.data, function(actionType) {
+			actionType.data.type = _.bind(actionType.data.type, this)();
+		}, this)
+
 	})
 ;
 
