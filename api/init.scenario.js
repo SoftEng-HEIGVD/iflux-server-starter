@@ -28,10 +28,10 @@ scenario.addParam('iflux_admin_password', {
 	default: process.env.IFLUX_ADMIN_PASSWORD
 });
 
-//scenario.addParam('slack_url', {
-//	default: process.env.IFLUXSLACK_SERVER_URL || 'http://ifluxslack:3001'
-//});
-//
+scenario.addParam('slack_url', {
+	default: process.env.SLACK_GATEWAY_URL
+});
+
 //scenario.addParam('metrics_url', {
 //	default: process.env.IFLUXMETRICS_SERVER_URL || 'http://ifluxmetrics:3002'
 //});
@@ -221,7 +221,7 @@ scenario.addParam('iflux_admin_password', {
 
 scenario.step('parameters', function() {
 	console.log("iFLUX API URL: %s", this.param('iflux_api_url'));
-	//console.log("Slack URL: %s", this.param('slack_url'));
+	console.log("Slack URL: %s", this.param('slack_url'));
 	//console.log("Metrics URL: %s", this.param('metrics_url'));
 	//console.log("Viewer URL: %s", this.param('viewer_url'));
 	//console.log("Slack is enabled: %s", this.param('enable_slack'));
@@ -297,6 +297,31 @@ var eventSourceInstances = new Iterator([{
 	  name: 'Publibike singleton data poller'
   }
 }]);
+
+var actionTargetTemplates = new Iterator([{
+	data: {
+	  name: 'iFlux Slack Gateway',
+	  public: true,
+	  configuration: {
+	    schema: {
+	      $schema: 'http://json-schema.org/draft-04/schema#',
+	      type: 'object',
+	      properties: {
+	        token: {
+	          type: 'string'
+	        }
+	      },
+	      additionalProperties: false,
+	      required: [ 'botId' ]
+	    },
+	    url: function() { return this.param('slack_url') + '/configure'; }
+	  },
+	  target: {
+	    url: function() { return this.param('slack_url') + '/actions'; }
+	  }
+	}
+}]);
+
 
 function extractId(response) {
 	var locationParts = response.headers.location.split('/');
@@ -430,7 +455,7 @@ function createEventSourceTemplate(eventSourceTemplate) {
 		.step('try to create event source template: ' + eventSourceTemplate.data.name, function() {
 			return this.post({
 				url: '/eventSourceTemplates',
-				body: _.extend(eventSourceTemplate,data, {
+				body: _.extend(eventSourceTemplate.data, {
 					organizationId: organizationId
 				}),
 				expect: {
@@ -500,7 +525,7 @@ function iterateEventSourceInstances() {
 		return findEventSourceInstance(eventSourceInstances.next());
 	}
 	else {
-		// TODO: Create next relevant objects
+		return iterateActionTargetTemplates();
 	}
 }
 
@@ -547,12 +572,91 @@ function createEventSourceInstance(eventSourceInstance) {
 		});
 }
 
+function iterateActionTargetTemplates() {
+	if (actionTargetTemplates.hasNext()) {
+		return findActionTargetTemplate(actionTargetTemplates.next());
+	}
+	else {
+		// TODO: Next step
+	}
+}
+
+function findActionTargetTemplate(actionTargetTemplate) {
+	return scenario
+		.step('find action target template: ' + actionTargetTemplate.data.name, function() {
+			return this.get({
+				url: '/actionTargetTemplates?name=' + actionTargetTemplate.data.name
+			});
+		})
+		.step('check action target template found: ' + actionTargetTemplate.data.name, function(response) {
+			if (response.statusCode == 200 && response.body.length == 1) {
+				actionTargetTemplate.id = response.body[0].id;
+				console.log('action target template found with id: %s'.green, actionTargetTemplate.id);
+
+				return iterateActionTargetTemplates();
+			}
+			else {
+				console.log('action target template: %s not found.'.yellow, actionTargetTemplate.data.name);
+				return createActionTargetTemplate(actionTargetTemplate);
+			}
+		})
+}
+
+function createActionTargetTemplate(actionTargetTemplate) {
+	return scenario
+		.step('try to create action target template: ' + actionTargetTemplate.data.name, function() {
+			return this.post({
+				url: '/actionTargetTemplates',
+				body: _.extend(actionTargetTemplate.data, {
+					organizationId: organizationId
+				}),
+				expect: {
+					statusCode: 201
+				}
+			});
+		})
+		.step('check action target template created for: ' + actionTargetTemplate.data.name, function(response) {
+			actionTargetTemplate.id = extractId(response);
+			console.log('action target template created with id: %s'.green, actionTargetTemplate.id);
+
+			return iterateActionTargetTemplates();
+		});
+}
+
+
+
+
+
+
+
+
+
+
 scenario
 	.step('configure base URL', function() {
 		return this.configure({
 			baseUrl: this.param('iflux_api_url')
 		});
-	});
+	})
+
+	.step('make sure all the data are well prepared.', function() {
+		_.each(eventSourceTemplates.data, function(eventSourceTemplate) {
+			if (eventSourceTemplate.data.configuration && _.isFunction(eventSourceTemplate.data.configuration.url)) {
+				eventSourceTemplate.data.configuration.url = _.bind(eventSourceTemplate.data.configuration.url, this)();
+			}
+		}, this);
+
+		_.each(actionTargetTemplates.data, function(actionTargetTemplate) {
+			if (actionTargetTemplate.data.configuration && _.isFunction(actionTargetTemplate.data.configuration.url)) {
+				actionTargetTemplate.data.configuration.url = _.bind(actionTargetTemplate.data.configuration.url, this)();
+			}
+
+			if (_.isFunction(actionTargetTemplate.data.target.url)) {
+				actionTargetTemplate.data.target.url = _.bind(actionTargetTemplate.data.target.url, this)();
+			}
+		}, this);
+	})
+;
 
 signin('first try to signing')
 	.step('check authentication done', function(response) {
