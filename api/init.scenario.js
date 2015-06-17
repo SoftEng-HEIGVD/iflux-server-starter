@@ -174,20 +174,6 @@ scenario.addParam('viewbox_url', {
 //		}
 //	},
 //
-//	"PUBLIBIKE-VIEWER": {
-//		description: "Send data to render on the publibike map",
-//		reference: "PUBLIBIKE-VIEWER",
-//		if: {
-//			eventSource: "publibike/eventSource",
-//			eventType: "movementEvent",
-//			eventProperties: {}
-//		},
-//		then: {
-//			actionTarget: "viewer_url",
-//			actionSchema: "{\"type\":\"newMarker\",\"properties\":{\"markerType\":\"publibike\",\"lat\":{{ properties.terminal.lat }},\"lng\":{{ properties.terminal.lng }},\"date\":\"{{ timestamp }}\",\"key\":\"id\",\"data\":{\"remainingBikes\":{{ properties.new.bikes }},\"id\":\"{{ properties.terminal.terminalid }}\",\"name\":\"{{ properties.terminal.name }}\",\"street\":\"{{ properties.terminal.street }}\",\"city\":\"{{ properties.terminal.city }}\",\"zip\":\"{{ properties.terminal.zip }}\"}}}"
-//		}
-//	},
-//
 //	"CITIZEN-VIEWER-NEW": {
 //		description: "Send data to render on the citizen map",
 //		reference: "CITIZEN-VIEWER-NEW",
@@ -597,6 +583,134 @@ function jwtRequestFilterFactory(jwtToken) {
 	}
 }
 
+var Manager = function(iterator, itemName, itemPath, options) {
+	var manager = this;
+
+	this.iterator = iterator;
+	this.itemName = itemName;
+	this.itemPath = itemPath;
+
+	if (options) {
+		if (options.next) {
+			this.next = options.next;
+		}
+
+		if (options.extend) {
+			this.extend = options.extend;
+		}
+
+		if (options.getUrl) {
+			this.getUrl = options.getUrl;
+		}
+	}
+
+	this.iterate = function() {
+		if (manager.iterator.hasNext()) {
+			return manager.find(manager.iterator.next());
+		}
+		else {
+			//return iterateActionTypes();
+			if (manager.next) {
+				if (_.isFunction(manager.next)) {
+					return manager.next();
+				}
+				else {
+					return manager.next.iterate();
+				}
+			}
+		}
+	};
+
+	this.find = function(item, retry) {
+		var retryText = retry ? 'retry: ' : '';
+
+		return scenario
+			.step(retryText + 'find ' + manager.itemName + ': ' + item.data.name, function () {
+				var baseGetUrl = '/' + manager.itemPath + '?name=' + item.data.name;
+				return this.get({
+					url: manager.getUrl ? manager.getUrl(item, baseGetUrl) : baseGetUrl
+				});
+			})
+			.step(retryText + 'check ' + manager.itemName + ' found: ' + item.data.name, function (response) {
+				if (response.statusCode == 200 && response.body.length == 1) {
+					item.id = response.body[0].id;
+					console.log('%s found with id: %s'.green, manager.itemName, item.id);
+
+					return manager.update(item);
+				}
+				else {
+					console.log('%s: %s not found.'.yellow, manager.itemName, item.data.name);
+					return manager.create(item);
+				}
+			})
+	};
+
+	this.create = function(item) {
+		return scenario
+			.step('try to create ' + manager.itemName + ': ' + item.data.name, function () {
+				var data = manager.extend ? manager.extend(item) : item.data;
+
+				return this.post({
+					url: '/' + manager.itemPath,
+					body: data,
+				});
+			})
+			.step('check ' + manager.itemName + ' created for: ' + item.data.name, function (response) {
+				if (response.statusCode == 201) {
+					item.id = extractId(response);
+					console.log('%s created with id: %s'.green, manager.itemName, item.id);
+					return manager.iterate();
+				}
+
+				else if (response.statusCode == 500 && response.body.message && response.body.message == 'Unable to configure the remote action target.') {
+					console.log('An error has occured in the creation of %s'.yellow, item.data.name);
+					console.log('%s'.yellow, response.body.message);
+					console.log('The iFLUX system may not behave as you expected.');
+					return manager.find(item, true);
+				}
+
+				else {
+					console.log('An error has occured in the creation of %s'.red, item.data.name);
+					console.log(item.data);
+					console.log(response.body);
+				}
+			});
+		};
+
+	this.update = function(item) {
+		return scenario
+			.step('try to update ' + manager.itemName + ': ' + item.data.name, function() {
+				return this.patch({
+					url: '/' + manager.itemPath + '/' + item.id,
+					body: manager.extend ? manager.extend(item) : item.data
+				});
+			})
+			.step('check ' + manager.itemName + ' updated for: ' + item.data.name, function(response) {
+				if (response.statusCode == 201) {
+					console.log('%s %s updated.'.green, manager.itemName, item.data.name);
+				}
+
+				else if (response.statusCode == 304) {
+					console.log('nothing updated on %s %s'.yellow, manager.itemName, item.data.name);
+				}
+
+				else if (response.statusCode == 500 && response.body.message && response.body.message == 'Unable to configure the remote action target.') {
+					console.log('An error has occured in the creation of %s'.yellow, item.data.name);
+					console.log('%s'.yellow, response.body.message);
+					console.log('The iFLUX system may not behave as you expected.');
+					return manager.find(item, true);
+				}
+
+				else {
+					console.log('There is an error: %s'.red, response.statusCode);
+					console.log(response.body);
+				}
+
+				return manager.iterate();
+			});
+	}
+}
+
 function signin(label) {
 	return scenario
 		.step(label, function() {
@@ -648,7 +762,7 @@ function findOrganization(label) {
 				organizationId = response.body[0].id;
 				console.log('organization found with id: %s'.green, organizationId);
 
-				iterateEventSourceTemplates();
+				eventSourceTemplateManager.iterate();
 			}
 			else {
 				console.log('unable to retrieve the iFLUX organization'.yellow);
@@ -674,342 +788,7 @@ function createOrganization() {
 			organizationId = extractId(response);
 			console.log('organization created with id: %s'.green, organizationId);
 
-			return iterateEventSourceTemplates();
-		});
-}
-
-function iterateEventSourceTemplates() {
-	if (eventSourceTemplates.hasNext()) {
-		return findEventSourceTemplate(eventSourceTemplates.next());
-	}
-	else {
-		return iterateEventTypes();
-	}
-}
-
-function findEventSourceTemplate(eventSourceTemplate) {
-	return scenario
-		.step('find event source template: ' + eventSourceTemplate.data.name, function() {
-			return this.get({
-				url: '/eventSourceTemplates?name=' + eventSourceTemplate.data.name
-			});
-		})
-		.step('check event source template found: ' + eventSourceTemplate.data.name, function(response) {
-			if (response.statusCode == 200 && response.body.length == 1) {
-				eventSourceTemplate.id = response.body[0].id;
-				console.log('event source template found with id: %s'.green, eventSourceTemplate.id);
-
-				return iterateEventSourceTemplates();
-			}
-			else {
-				console.log('event source template: %s not found.'.yellow, eventSourceTemplate.data.name);
-				return createEventSourceTemplate(eventSourceTemplate);
-			}
-		})
-}
-
-function createEventSourceTemplate(eventSourceTemplate) {
-	return scenario
-		.step('try to create event source template: ' + eventSourceTemplate.data.name, function() {
-			return this.post({
-				url: '/eventSourceTemplates',
-				body: _.extend(eventSourceTemplate.data, {
-					organizationId: organizationId
-				}),
-				expect: {
-					statusCode: 201
-				}
-			});
-		})
-		.step('check event source template created for: ' + eventSourceTemplate.data.name, function(response) {
-			eventSourceTemplate.id = extractId(response);
-			console.log('event source template created with id: %s'.green, eventSourceTemplate.id);
-
-			return iterateEventSourceTemplates();
-		});
-}
-
-function iterateEventTypes() {
-	if (eventTypes.hasNext()) {
-		return findEventType(eventTypes.next());
-	}
-	else {
-		return iterateEventSourceInstances();
-	}
-}
-
-function findEventType(eventType) {
-	return scenario
-		.step('find event type: ' + eventType.data.name, function() {
-			return this.get({
-				url: '/eventTypes?eventSourceTemplateId=' + eventType.template.id + '&name=' + eventType.data.name
-			});
-		})
-		.step('check event type found: ' + eventType.data.name, function(response) {
-			if (response.statusCode == 200 && response.body.length == 1) {
-				eventType.id = response.body[0].id;
-				console.log('event type found with id: %s'.green, eventType.id);
-
-				return iterateEventTypes();
-			}
-			else {
-				console.log('event type: %s not found.'.yellow, eventType.data.name);
-				return createEventType(eventType);
-			}
-		})
-}
-
-function createEventType(eventType) {
-	return scenario
-		.step('try to create event type: ' + eventType.data.name, function() {
-			return this.post({
-				url: '/eventTypes',
-				body: _.extend(eventType.data, { eventSourceTemplateId: eventType.template.id }),
-				expect: {
-					statusCode: 201
-				}
-			});
-		})
-		.step('check event type created for: ' + eventType.data.name, function(response) {
-			eventType.id = extractId(response);
-			console.log('event type created with id: %s'.green, eventType.id);
-
-			return iterateEventTypes();
-		});
-}
-
-function iterateEventSourceInstances() {
-	if (eventSourceInstances.hasNext()) {
-		return findEventSourceInstance(eventSourceInstances.next());
-	}
-	else {
-		return iterateActionTargetTemplates();
-	}
-}
-
-function findEventSourceInstance(eventSourceInstance) {
-	return scenario
-		.step('find event source instance: ' + eventSourceInstance.data.name, function() {
-			return this.get({
-				url: '/eventSourceInstances?eventSourceTemplateId=' + eventSourceInstance.template.id + '&name=' + eventSourceInstance.data.name
-			});
-		})
-		.step('check event source instance found: ' + eventSourceInstance.data.name, function(response) {
-			if (response.statusCode == 200 && response.body.length == 1) {
-				eventSourceInstance.id = response.body[0].id;
-				eventSourceInstance.genId = response.body[0].eventSourceInstanceId;
-				console.log('event source instance found with id: %s'.green, eventSourceInstance.id);
-
-				return iterateEventSourceInstances();
-			}
-			else {
-				console.log('event source instance: %s not found.'.yellow, eventSourceInstance.data.name);
-				return createEventSourceInstance(eventSourceInstance);
-			}
-		})
-}
-
-function createEventSourceInstance(eventSourceInstance) {
-	return scenario
-		.step('try to create event source instance: ' + eventSourceInstance.data.name, function() {
-			return this.post({
-				url: '/eventSourceInstances',
-				body: _.extend(eventSourceInstance.data, {
-					organizationId: organizationId,
-					eventSourceTemplateId: eventSourceInstance.template.id
-				}),
-				expect: {
-					statusCode: 201
-				}
-			});
-		})
-		.step('check event source instance created for: ' + eventSourceInstance.data.name, function(response) {
-			eventSourceInstance.id = extractId(response);
-			eventSourceInstance.genId = extractGenId(response);
-			console.log('event source instance created with id: %s'.green, eventSourceInstance.id);
-
-			return iterateEventSourceInstances();
-		});
-}
-
-function iterateActionTargetTemplates() {
-	if (actionTargetTemplates.hasNext()) {
-		return findActionTargetTemplate(actionTargetTemplates.next());
-	}
-	else {
-		return iterateActionTypes();
-	}
-}
-
-function findActionTargetTemplate(actionTargetTemplate) {
-	return scenario
-		.step('find action target template: ' + actionTargetTemplate.data.name, function() {
-			return this.get({
-				url: '/actionTargetTemplates?name=' + actionTargetTemplate.data.name
-			});
-		})
-		.step('check action target template found: ' + actionTargetTemplate.data.name, function(response) {
-			if (response.statusCode == 200 && response.body.length == 1) {
-				actionTargetTemplate.id = response.body[0].id;
-				console.log('action target template found with id: %s'.green, actionTargetTemplate.id);
-
-				return iterateActionTargetTemplates();
-			}
-			else {
-				console.log('action target template: %s not found.'.yellow, actionTargetTemplate.data.name);
-				return createActionTargetTemplate(actionTargetTemplate);
-			}
-		})
-}
-
-function createActionTargetTemplate(actionTargetTemplate) {
-	return scenario
-		.step('try to create action target template: ' + actionTargetTemplate.data.name, function() {
-			return this.post({
-				url: '/actionTargetTemplates',
-				body: _.extend(actionTargetTemplate.data, {
-					organizationId: organizationId
-				}),
-				expect: {
-					statusCode: 201
-				}
-			});
-		})
-		.step('check action target template created for: ' + actionTargetTemplate.data.name, function(response) {
-			actionTargetTemplate.id = extractId(response);
-			console.log('action target template created with id: %s'.green, actionTargetTemplate.id);
-
-			return iterateActionTargetTemplates();
-		});
-}
-
-function iterateActionTypes() {
-	if (actionTypes.hasNext()) {
-		return findActionType(actionTypes.next());
-	}
-	else {
-		return iterateActionTargetInstances();
-	}
-}
-
-function findActionType(actionType) {
-	return scenario
-		.step('find action type: ' + actionType.data.name, function() {
-			return this.get({
-				url: '/actionTypes?actionTargetTemplateId=' + actionType.template.id + '&name=' + actionType.data.name
-			});
-		})
-		.step('check action type found: ' + actionType.data.name, function(response) {
-			if (response.statusCode == 200 && response.body.length == 1) {
-				actionType.id = response.body[0].id;
-				console.log('action type found with id: %s'.green, actionType.id);
-
-				return iterateActionTypes();
-			}
-			else {
-				console.log('action type: %s not found.'.yellow, actionType.data.name);
-				return createActionType(actionType);
-			}
-		})
-}
-
-function createActionType(actionType) {
-	return scenario
-		.step('try to create action type: ' + actionType.data.name, function() {
-			return this.post({
-				url: '/actionTypes',
-				body: _.extend(actionType.data, { actionTargetTemplateId: actionType.template.id }),
-				expect: {
-					statusCode: 201
-				}
-			});
-		})
-		.step('check action type created for: ' + actionType.data.name, function(response) {
-			actionType.id = extractId(response);
-			console.log('action type created with id: %s'.green, actionType.id);
-
-			return iterateActionTypes();
-		});
-}
-
-function iterateActionTargetInstances() {
-	if (actionTargetInstances.hasNext()) {
-		return findActionTargetInstance(actionTargetInstances.next());
-	}
-	else {
-		return prepareRules();
-	}
-}
-
-function findActionTargetInstance(actionTargetInstance) {
-	return scenario
-		.step('find action target instance: ' + actionTargetInstance.data.name, function() {
-			return this.get({
-				url: '/actionTargetInstances?actionTargetTemplateId=' + actionTargetInstance.template.id + '&name=' + actionTargetInstance.data.name
-			});
-		})
-		.step('check action target instance found: ' + actionTargetInstance.data.name, function(response) {
-			if (response.statusCode == 200 && response.body.length == 1) {
-				actionTargetInstance.id = response.body[0].id;
-				actionTargetInstance.genId = response.body[0].actionTargetInstanceId;
-				console.log('action target instance found with id: %s'.green, actionTargetInstance.id);
-
-				return iterateActionTargetInstances();
-			}
-			else {
-				console.log('action target instance: %s not found.'.yellow, actionTargetInstance.data.name);
-				return createActionTargetInstance(actionTargetInstance);
-			}
-		})
-}
-
-function createActionTargetInstance(actionTargetInstance) {
-	return scenario
-		.step('try to create action target instance: ' + actionTargetInstance.data.name, function() {
-			return this.post({
-				url: '/actionTargetInstances',
-				body: _.extend(actionTargetInstance.data, {
-					organizationId: organizationId,
-					actionTargetTemplateId: actionTargetInstance.template.id
-				}),
-				expect: {
-					statusCode: 201
-				}
-			});
-		})
-		.step('check action target instance created for: ' + actionTargetInstance.data.name, function(response) {
-			actionTargetInstance.id = extractId(response);
-			actionTargetInstance.genId = extractGenId(response);
-			console.log('action target instance created with id: %s'.green, actionTargetInstance.id);
-
-			return iterateActionTargetInstances();
-		});
-}
-
-function updateActionTargetInstance(actionTargetInstance) {
-	return scenario
-		.step('try to update action target instance: ' + actionTargetInstance.data.name, function() {
-			return this.pacth({
-				url: '/actionTargetInstances/' + actionTargetInstance.id,
-				body: _.extend(actionTargetInstance.data, {
-					organizationId: organizationId,
-					actionTargetTemplateId: actionTargetInstance.template.id
-				})
-			});
-		})
-		.step('check action target instance updated for: ' + actionTargetInstance.data.name, function(response) {
-			if (response.statusCode == 201) {
-				console.log('action target instance %s updated.', actionTargetInstance.data.name);
-			}
-			else if (response.statusCode == 304) {
-				console.log('nothing updated on action target instance %s', actionTargetInstance.data.name);
-			}
-			else {
-				console.log('There is an error: %s', response.statusCode);
-				console.log(response.body);
-			}
-
-			return iterateActionTargetInstances();
+			return eventSourceTemplateManager.iterate();
 		});
 }
 
@@ -1047,84 +826,8 @@ function prepareRules() {
 			}, this);
 		});
 
-	return iterateRules();
-}
-
-function iterateRules() {
-	if (rules.hasNext()) {
-		return findRule(rules.next());
-	}
-	else {
-		return logging();
-	}
-}
-
-function findRule(rule) {
-	return scenario
-		.step('find rule: ' + rule.data.name, function() {
-			return this.get({
-				url: '/rules?name=' + rule.data.name
-			});
-		})
-		.step('check rule found: ' + rule.data.name, function(response) {
-			if (response.statusCode == 200 && response.body.length == 1) {
-				rule.id = response.body[0].id;
-				console.log('rule found with id: %s'.green, rule.id);
-
-				return updateRule(rule);
-			}
-			else {
-				console.log('rule: %s not found.'.yellow, rule.data.name);
-				return createRule(rule);
-			}
-		})
-}
-
-function createRule(rule) {
-	return scenario
-		.step('try to create rule: ' + rule.data.name, function() {
-			return this.post({
-				url: '/rules',
-				body: _.extend(rule.data, {
-					organizationId: organizationId
-				}),
-				expect: {
-					statusCode: 201
-				}
-			});
-		})
-		.step('check rule created for: ' + rule.data.name, function(response) {
-			rule.id = extractId(response);
-			console.log('rule created with id: %s'.green, rule.id);
-
-			return iterateRules();
-		});
-}
-
-function updateRule(rule) {
-	return scenario
-		.step('try to update rule: ' + rule.data.name, function() {
-			return this.patch({
-				url: '/rules/' + rule.id,
-				body: _.extend(rule.data, {
-					organizationId: organizationId
-				})
-			});
-		})
-		.step('check rule update for: ' + rule.data.name, function(response) {
-			if (response.statusCode == 201) {
-				console.log('rule %s updated.', rule.data.name);
-			}
-			else if (response.statusCode == 304) {
-				console.log('nothing updated on rule %s', rule.data.name);
-			}
-			else {
-				console.log('There is an error: %s', response.statusCode);
-				console.log(response.body);
-			}
-
-			return iterateRules();
-		});
+	//return iterateRules();
+	return ruleManager.iterate();
 }
 
 function logging() {
@@ -1159,6 +862,76 @@ function logging() {
 			console.log('------------------------');
 		});
 }
+
+var ruleManager = new Manager(rules, 'rule', 'rules', { next: logging, extend: function(item) { return _.extend(item.data, { organizationId: organizationId }); }});
+
+var actionTargetInstanceManager = new Manager(actionTargetInstances, 'action target instance', 'actionTargetInstances', {
+	next: prepareRules,
+	getUrl: function(item, baseGetUrl) {
+		return baseGetUrl + '&actionTargetTemplateId=' + item.template.id
+	},
+	extend: function(item) {
+		return _.extend(item.data, {
+			organizationId: organizationId,
+			actionTargetTemplateId: item.template.id
+		});
+	}
+});
+
+var actionTypeManager = new Manager(actionTypes, 'action type', 'actionTypes', {
+	next: actionTargetInstanceManager,
+	getUrl: function(item, baseGetUrl) {
+		return baseGetUrl + '&actionTargetTemplateId=' + item.template.id
+	},
+	extend: function(item) {
+		return _.extend(item.data, {
+			actionTargetTemplateId: item.template.id
+		});
+	}
+});
+
+var actionTargetTemplateManager = new Manager(actionTargetTemplates, 'action target template', 'actionTargetTemplates', {
+	next: actionTypeManager,
+	extend: function(item) {
+		return _.extend(item.data, {
+			organizationId: organizationId,
+		});
+	}
+});
+
+var eventSourceInstanceManager = new Manager(eventSourceInstances, 'event source instance', 'eventSourceInstances', {
+	next: actionTargetTemplateManager,
+	getUrl: function(item, baseGetUrl) {
+		return baseGetUrl + '&eventSourceTemplateId=' + item.template.id
+	},
+	extend: function(item) {
+		return _.extend(item.data, {
+			organizationId: organizationId,
+			eventSourceTemplateId: item.template.id
+		});
+	}
+});
+
+var eventTypeManager = new Manager(eventTypes, 'event type', 'eventTypes', {
+	next: eventSourceInstanceManager,
+	getUrl: function(item, baseGetUrl) {
+		return baseGetUrl + '&eventSourceTemplateId=' + item.template.id
+	},
+	extend: function(item) {
+		return _.extend(item.data, {
+			eventSourceTemplateId: item.template.id
+		});
+	}
+});
+
+var eventSourceTemplateManager = new Manager(eventSourceTemplates, 'event source template', 'eventSourceTemplates', {
+	next: eventTypeManager,
+	extend: function(item) {
+		return _.extend(item.data, {
+			organizationId: organizationId,
+		});
+	}
+});
 
 scenario
 	.step('configure base URL', function() {
@@ -1213,60 +986,5 @@ signin('first try to signing')
 			return findOrganization('after first attempt to signin');
 		}
 	});
-
-
-
-
-
-//_.each(rules, function(rule, ref) {
-//	scenario.step('retrieve rule: ' + ref, function() {
-//		return this.get({
-//			url: '/v1/rules',
-//			qs: {
-//				reference: ref
-//			}
-//		});
-//	});
-//
-//	scenario.step('configure rule: ' + ref, function(response) {
-//		var retrievedRules = response.body;
-//
-//		var rule = rules[ref];
-//
-//		rule.then.actionTarget = this.param(rule.then.actionTarget);
-//
-//		console.log("New action target: %s", rule.then.actionTarget);
-//
-//		var enabled = true;
-//
-//		if (ref.indexOf('SLACK') > -1) {
-//			enabled = this.param('enable_slack');
-//		}
-//
-//		if (retrievedRules.length == 1) {
-//			return this.patch({
-//				url: '/v1/rules/' + retrievedRules[0].id,
-//				body: {
-//					enabled: enabled,
-//					then: {
-//						actionTarget: rule.then.actionTarget,
-//						actionSchema: rule.then.actionSchema
-//					}
-//				}
-//			});
-//		}
-//		else if (retrievedRules.length == 0) {
-//			rule.enabled = enabled;
-//
-//			return this.post({
-//				url: '/v1/rules',
-//				body: rule
-//			});
-//		}
-//		else {
-//			throw new Error('More than one rule exist for rule: ' + ref);
-//		}
-//	});
-//});
 
 module.exports = scenario;
