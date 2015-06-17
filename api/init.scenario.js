@@ -44,17 +44,12 @@ scenario.addParam('viewbox_url', {
 	default: process.env.VIEWBOX_URL
 });
 
-//scenario.addParam('metrics_url', {
-//	default: process.env.IFLUXMETRICS_SERVER_URL || 'http://ifluxmetrics:3002'
-//});
-//
-//scenario.addParam('viewer_url', {
-//	default: process.env.IFLUXMAPBOX_SERVER_URL || 'http://ifluxmapbox:3004'
-//});
-//
-//scenario.addParam('enable_slack', {
-//	default: process.env.ENABLE_SLACK || true
-//});
+scenario.addParam('metrics_url', {
+	default: process.env.METRICS_URL
+});
+
+
+
 
 //var rules = {
 //	"SC-CE-AE-SLACK": {
@@ -311,7 +306,7 @@ var eventSourceInstances = new Iterator([{
 
 var actionTargetTemplates = new Iterator([{
 	data: {
-	  name: 'iFlux Slack Gateway',
+	  name: 'iFLUX Slack Gateway',
 	  public: true,
 	  configuration: {
 	    schema: {
@@ -333,7 +328,7 @@ var actionTargetTemplates = new Iterator([{
 	}
 }, {
 	data: {
-	  name: 'iFlux ViewBox',
+	  name: 'iFLUX ViewBox',
 	  public: true,
 	  configuration: {
 	    schema: {
@@ -372,6 +367,14 @@ var actionTargetTemplates = new Iterator([{
 	  },
 	  target: {
 	    url: function() { return this.param('viewbox_url') + '/actions'; }
+	  }
+	}
+}, {
+	data: {
+	  name: 'iFLUX Metrics',
+	  public: true,
+	  target: {
+	    url: function() { return this.param('metrics_url') + '/actions'; }
 	  }
 	}
 }]);
@@ -457,6 +460,28 @@ var actionTypes = new Iterator([{
 	    }
 	  }
 	}
+}, {
+	template: actionTargetTemplates.data[2],
+	data: {
+	  name: 'Metric update',
+	  description: 'Update metrics.',
+		type: function() { return this.param('iflux_schemas_url') + '/actionTypes/updateMetric'; },
+	  schema: {
+	    $schema: 'http://json-schema.org/draft-04/schema#',
+	    type: 'object',
+	    properties: {
+	      metric: {
+	        type: 'string'
+	      },
+		    value: {
+			    type: 'number'
+		    },
+		    timestamp: {
+			    type: 'date'
+		    }
+	    }
+	  }
+	}
 }]);
 
 var actionTargetInstances = new Iterator([{
@@ -465,7 +490,7 @@ var actionTargetInstances = new Iterator([{
 	  name: 'iFLUX Slack Gateway Instance',
 	  configuration: function() { return { token: this.param('slack_bot_token') }; }
   }
-},{
+}, {
 	template: actionTargetTemplates.data[1],
   data: {
 	  name: 'iFLUX ViewBox Publibike Instance',
@@ -479,6 +504,11 @@ var actionTargetInstances = new Iterator([{
 			  legendType: 'bike'
 		  }
 	  }
+  }
+}, {
+	template: actionTargetTemplates.data[2],
+  data: {
+	  name: 'iFLUX Metrics Instance'
   }
 }]);
 
@@ -530,6 +560,70 @@ var rules = new Iterator([{
 			eventTypeId: eventTypes.data[0],
 			fn: {
 				expression: "return { markerId: event.properties.terminal.terminalid, lat: event.properties.terminal.lat, lng: event.properties.terminal.lng, date: event.timestamp, data: { type: 'bike', name: event.properties.terminal.name, street: event.properties.terminal.street, city: event.properties.terminal.street, zip: event.properties.terminal.zip, freeholders: event.properties.new.freeholders, bikes: event.properties.new.bikes }};",
+				sample: {
+					event: {
+						terminalid: 'asdfghjkl',
+						terminal: {
+							name: 'Y-Parc',
+							infotext: 'Parc Scientifique - Yverdon',
+							zip: '1400',
+							city: 'Yverdon-les-Bains',
+							country: 'Switzerland',
+							lat: 46.764968,
+							lng: 6.646069,
+							image: ''
+						},
+						old: {
+							freeholders: 10,
+							bikes: 3
+						},
+						new: {
+							freeholders: 11,
+							bikes: 2
+						}
+					},
+					eventSourceTemplateId: eventSourceTemplates.data[0]
+				}
+			}
+		}, {
+			description: 'Update free holders metric for each station.',
+			actionTargetInstanceId: actionTargetInstances.data[2],
+			actionTypeId: actionTypes.data[2],
+			eventTypeId: eventTypes.data[0],
+			fn: {
+				expression: "return { metric: 'io.iflux.publibike.holders.' + event.properties.terminal.terminalid, value: event.properties.new.freeholders, timestamp: event.timestamp };",
+				sample: {
+					event: {
+						terminalid: 'asdfghjkl',
+						terminal: {
+							name: 'Y-Parc',
+							infotext: 'Parc Scientifique - Yverdon',
+							zip: '1400',
+							city: 'Yverdon-les-Bains',
+							country: 'Switzerland',
+							lat: 46.764968,
+							lng: 6.646069,
+							image: ''
+						},
+						old: {
+							freeholders: 10,
+							bikes: 3
+						},
+						new: {
+							freeholders: 11,
+							bikes: 2
+						}
+					},
+					eventSourceTemplateId: eventSourceTemplates.data[0]
+				}
+			}
+		}, {
+			description: 'Update bikes metric for each station.',
+			actionTargetInstanceId: actionTargetInstances.data[2],
+			actionTypeId: actionTypes.data[2],
+			eventTypeId: eventTypes.data[0],
+			fn: {
+				expression: "return { metric: 'io.iflux.publibike.bikes.' + event.properties.terminal.terminalid, value: event.properties.new.bikes, timestamp: event.timestamp };",
 				sample: {
 					event: {
 						terminalid: 'asdfghjkl',
