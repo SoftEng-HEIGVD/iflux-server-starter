@@ -40,6 +40,10 @@ scenario.addParam('slack_bot_token', {
 	default: process.env.SLACK_GATEWAY_IFLUX_BOT_TOKEN
 });
 
+scenario.addParam('viewbox_url', {
+	default: process.env.VIEWBOX_URL
+});
+
 //scenario.addParam('metrics_url', {
 //	default: process.env.IFLUXMETRICS_SERVER_URL || 'http://ifluxmetrics:3002'
 //});
@@ -141,19 +145,6 @@ scenario.addParam('slack_bot_token', {
 //		then: {
 //			actionTarget: "metrics_url",
 //			actionSchema: "{\"type\":\"updateMetric\",\"properties\":{\"metric\":\"ch.heigvd.ptl.slack.messages\",\"timestamp\":\"{{ timestamp }}\"}}"
-//		}
-//	},
-//
-//	"PUBLIBIKE-SLACK": {
-//		description: "Send text notification to slack to notify bikes availibilities.",
-//		reference: "PUBLIBIKE-SLACK",
-//		if: {
-//			eventSource: "publibike/eventSource",
-//			eventType: "movementEvent"
-//		},
-//		then: {
-//			actionTarget: "slack_url",
-//			actionSchema: "{\"type\":\"sendSlackMessage\",\"properties\":{\"channel\":\"iflux\",\"message\":\"Only {{ properties.new.bikes }} bike(s) available at the station {{ properties.terminal.name }}, {{ properties.terminal.street }}, {{ properties.terminal.zip }} {{ properties.terminal.city }}.\"}}"
 //		}
 //	},
 //
@@ -266,7 +257,7 @@ var eventTypes = new Iterator([{
 			$schema: 'http://json-schema.org/draft-04/schema#',
 	    type: 'object',
 			properties: {
-				terminalId: {
+				terminalid: {
 					type: 'string'
 				},
 				terminal: {
@@ -354,6 +345,49 @@ var actionTargetTemplates = new Iterator([{
 	    url: function() { return this.param('slack_url') + '/actions'; }
 	  }
 	}
+}, {
+	data: {
+	  name: 'iFlux ViewBox',
+	  public: true,
+	  configuration: {
+	    schema: {
+	      $schema: 'http://json-schema.org/draft-04/schema#',
+	      type: 'object',
+	      properties: {
+	        mapName: {
+	          type: 'string'
+	        },
+		      expiration: {
+			      type: 'integer'
+		      },
+		      mapConfig: {
+			      type: 'object',
+			      properties: {
+				      centerLat: {
+					      type: 'number'
+				      },
+				      centerLng: {
+					      type: 'number'
+				      },
+				      initialZoom: {
+					      type: 'integer'
+				      },
+				      legendType: {
+					      type: 'string'
+				      }
+			      },
+			      required: [ 'centerLat', 'centerLng', 'initialZoom', 'legendType' ]
+		      }
+	      },
+	      additionalProperties: false,
+	      required: [ 'mapName', 'mapConfig' ]
+	    },
+	    url: function() { return this.param('viewbox_url') + '/configure'; }
+	  },
+	  target: {
+	    url: function() { return this.param('viewbox_url') + '/actions'; }
+	  }
+	}
 }]);
 
 var actionTypes = new Iterator([{
@@ -372,6 +406,71 @@ var actionTypes = new Iterator([{
 	    }
 	  }
 	}
+}, {
+	template: actionTargetTemplates.data[1],
+	data: {
+	  name: 'View marker',
+	  description: 'Add or update a view marker.',
+		type: function() { return this.param('iflux_schemas_url') + '/actionTypes/viewMarker'; },
+	  schema: {
+	    $schema: 'http://json-schema.org/draft-04/schema#',
+	    type: 'object',
+	    properties: {
+		    markerId: {
+			    type: 'string'
+		    },
+	      lat: {
+	        type: 'number'
+	      },
+		    lng: {
+			    type: 'number'
+		    },
+		    date: {
+			    type: 'date'
+		    },
+		    data: {
+			    type: 'object',
+					oneOf: [{
+						$ref: "#/definitions/bike"
+					}]
+		    }
+		  },
+		  required: [ 'markerId', 'lat', 'lng', 'date', 'data' ],
+		  additionalProperties: false,
+	    definitions: {
+		    bike: {
+			    properties: {
+				    type: {
+					    enum: ['bike']
+				    },
+				    terminalId: {
+					    type: 'string'
+				    },
+				    name: {
+					    type: 'string'
+				    },
+				    street: {
+					    type: 'string'
+				    },
+				    city: {
+					    type: 'string'
+				    },
+				    zip: {
+					    type: 'string'
+				    },
+				    freeholders: {
+					    type: 'integer'
+				    },
+				    bikes: {
+					    type: 'integer'
+				    }
+			    },
+			    required: [ 'type', 'terminalId', 'name', 'street', 'city', 'zip', 'freeholders', 'bikes' ],
+			    additionalProperties: false
+		    }
+	    }
+	  }
+	}
 }]);
 
 var actionTargetInstances = new Iterator([{
@@ -380,12 +479,27 @@ var actionTargetInstances = new Iterator([{
 	  name: 'iFLUX Slack Gateway Instance',
 	  configuration: function() { return { token: this.param('slack_bot_token') }; }
   }
+},{
+	template: actionTargetTemplates.data[1],
+  data: {
+	  name: 'iFLUX ViewBox Publibike Instance',
+	  configuration: {
+		  mapName: 'Publibike visualization',
+		  expiration: 24 * 60 * 60 * 1000,
+		  mapConfig: {
+			  centerLat: 46.801111,
+			  centerLng: 8.226667,
+			  initialZoom: 9,
+			  legendType: 'bike'
+		  }
+	  }
+  }
 }]);
 
 var rules = new Iterator([{
 	data: {
-		name: 'Publibike annoucements on Slack',
-		description: 'From publibike annoucements, a message is sent to iFLUX Slack Gateway channel.',
+		name: 'Publibike movements',
+		description: 'Broadcast publibike movements.',
 		active: true,
 		conditions: [{
 			description: 'Detect bike movements',
@@ -400,7 +514,39 @@ var rules = new Iterator([{
 				expression: "return { channel: 'iflux', message: 'Only ' + event.properties.new.bikes + ' bike(s) available at the station ' + event.properties.terminal.name + ', ' + event.properties.terminal.street + ', ' + event.properties.terminal.zip + ' ' + event.properties.terminal.city + '.' };",
 				sample: {
 					event: {
-						terminalId: 'asdfghjkl',
+						terminalid: 'asdfghjkl',
+						terminal: {
+							name: 'Y-Parc',
+							infotext: 'Parc Scientifique - Yverdon',
+							zip: '1400',
+							city: 'Yverdon-les-Bains',
+							country: 'Switzerland',
+							lat: 46.764968,
+							lng: 6.646069,
+							image: ''
+						},
+						old: {
+							freeholders: 10,
+							bikes: 3
+						},
+						new: {
+							freeholders: 11,
+							bikes: 2
+						}
+					},
+					eventSourceTemplateId: eventSourceTemplates.data[0]
+				}
+			}
+		}, {
+			description: 'Notify a change in station to allow a visualization.',
+			actionTargetInstanceId: actionTargetInstances.data[1],
+			actionTypeId: actionTypes.data[1],
+			eventTypeId: eventTypes.data[0],
+			fn: {
+				expression: "return { markerId: event.properties.terminal.terminalid, lat: event.properties.terminal.lat, lng: event.properties.terminal.lng, date: event.timestamp, data: { type: 'bike', name: event.properties.terminal.name, street: event.properties.terminal.street, city: event.properties.terminal.street, zip: event.properties.terminal.zip, freeholders: event.properties.new.freeholders, bikes: event.properties.new.bikes }};",
+				sample: {
+					event: {
+						terminalid: 'asdfghjkl',
 						terminal: {
 							name: 'Y-Parc',
 							infotext: 'Parc Scientifique - Yverdon',
@@ -840,6 +986,33 @@ function createActionTargetInstance(actionTargetInstance) {
 		});
 }
 
+function updateActionTargetInstance(actionTargetInstance) {
+	return scenario
+		.step('try to update action target instance: ' + actionTargetInstance.data.name, function() {
+			return this.pacth({
+				url: '/actionTargetInstances/' + actionTargetInstance.id,
+				body: _.extend(actionTargetInstance.data, {
+					organizationId: organizationId,
+					actionTargetTemplateId: actionTargetInstance.template.id
+				})
+			});
+		})
+		.step('check action target instance updated for: ' + actionTargetInstance.data.name, function(response) {
+			if (response.statusCode == 201) {
+				console.log('action target instance %s updated.', actionTargetInstance.data.name);
+			}
+			else if (response.statusCode == 304) {
+				console.log('nothing updated on action target instance %s', actionTargetInstance.data.name);
+			}
+			else {
+				console.log('There is an error: %s', response.statusCode);
+				console.log(response.body);
+			}
+
+			return iterateActionTargetInstances();
+		});
+}
+
 function prepareRules() {
 	scenario
 		.step('prepare the rules.', function() {
@@ -898,7 +1071,7 @@ function findRule(rule) {
 				rule.id = response.body[0].id;
 				console.log('rule found with id: %s'.green, rule.id);
 
-				return iterateRules();
+				return updateRule(rule);
 			}
 			else {
 				console.log('rule: %s not found.'.yellow, rule.data.name);
@@ -914,15 +1087,41 @@ function createRule(rule) {
 				url: '/rules',
 				body: _.extend(rule.data, {
 					organizationId: organizationId
-				//}),
-				//expect: {
-				//	statusCode: 201
-				})
+				}),
+				expect: {
+					statusCode: 201
+				}
 			});
 		})
 		.step('check rule created for: ' + rule.data.name, function(response) {
 			rule.id = extractId(response);
 			console.log('rule created with id: %s'.green, rule.id);
+
+			return iterateRules();
+		});
+}
+
+function updateRule(rule) {
+	return scenario
+		.step('try to update rule: ' + rule.data.name, function() {
+			return this.patch({
+				url: '/rules/' + rule.id,
+				body: _.extend(rule.data, {
+					organizationId: organizationId
+				})
+			});
+		})
+		.step('check rule update for: ' + rule.data.name, function(response) {
+			if (response.statusCode == 201) {
+				console.log('rule %s updated.', rule.data.name);
+			}
+			else if (response.statusCode == 304) {
+				console.log('nothing updated on rule %s', rule.data.name);
+			}
+			else {
+				console.log('There is an error: %s', response.statusCode);
+				console.log(response.body);
+			}
 
 			return iterateRules();
 		});
