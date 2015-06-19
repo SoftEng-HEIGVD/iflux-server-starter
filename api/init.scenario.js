@@ -16,6 +16,10 @@ var scenario = new copilot.Scenario({
 	}
 });
 
+// ############################################################################################
+// START OF PARAMETERS
+// ############################################################################################
+
 scenario.addParam('iflux_api_url', {
 	default: process.env.COMMON_IFLUX_API_URL
 });
@@ -52,76 +56,9 @@ scenario.addParam('citizen_url', {
 	default: process.env.CITIZEN_URL
 });
 
-
-
-//var rules = {
-//	"SC-CE-AE-GLOBAL-METRICS": {
-//		description: "Update metrics globally on metrics action target.",
-//		reference: "SC-CE-AE-GLOBAL-METRICS",
-//		if: {
-//			eventSource: "smartCity/citizenEngagement",
-//			eventType: "actionEvent"
-//		},
-//		then: {
-//			actionTarget: "metrics_url",
-//			actionSchema: "{\"type\":\"updateMetric\",\"properties\":{\"metric\":\"ch.heigvd.ptl.sc.ce.{{properties.type}}\",\"timestamp\":\"{{timestamp}}\"}}"
-//		}
-//	},
-//
-//	"SC-CE-AE-ISSUE-METRICS": {
-//		description: "Update metrics for an issue on metrics action target.",
-//		reference: "SC-CE-AE-ISSUE-METRICS",
-//		if: {
-//			eventSource: "smartCity/citizenEngagement",
-//			eventType: "actionEvent"
-//		},
-//		then: {
-//			actionTarget: "metrics_url",
-//			actionSchema: "{\"type\":\"updateMetric\",\"properties\":{\"metric\":\"ch.heigvd.ptl.sc.ce.{{properties.issueId}}.{{properties.type}}\",\"timestamp\":\"{{timestamp}}\"}}"
-//		}
-//	},
-//
-//	"SC-CE-IC-METRICS": {
-//		description: "Update metrics globally on issue creation.",
-//		reference: "SC-CE-IC-METRICS",
-//		if: {
-//			eventSource: "smartCity/citizenEngagement",
-//			eventType: "issueCreated"
-//		},
-//		then: {
-//			actionTarget: "metrics_url",
-//			actionSchema: "{\"type\":\"updateMetric\",\"properties\":{\"metric\":\"ch.heigvd.ptl.sc.ce.issueCreated\",\"timestamp\":\"{{timestamp}}\"}}"
-//		}
-//	},
-//
-//	"DEMO-SLACK": {
-//		description: "Send notifications to slack",
-//		reference: "DEMO-SLACK",
-//		if: {
-//			eventSource: "docker/slack",
-//			eventType: "dockerEvent"
-//		},
-//		then: {
-//			actionTarget: "slack_url",
-//			actionSchema: "{\"type\":\"sendSlackMessage\",\"properties\":{\"message\":\"There we go! This is a message from the amazing Docker Infra! {{ properties.custom }}\",\"channel\":\"iflux\"}}"
-//		}
-//	},
-//
-//	"DEMO-METRICS": {
-//		description: "Slack Metrics",
-//		reference: "DEMO-METRICS",
-//		if: {
-//			eventSource: "docker/slack",
-//			eventType: "dockerEvent"
-//		},
-//		then: {
-//			actionTarget: "metrics_url",
-//			actionSchema: "{\"type\":\"updateMetric\",\"properties\":{\"metric\":\"ch.heigvd.ptl.slack.messages\",\"timestamp\":\"{{ timestamp }}\"}}"
-//		}
-//	},
-//
-//
-//}
+// ############################################################################################
+// END OF PARAMETERS
+// ############################################################################################
 
 var organizationId;
 
@@ -1143,6 +1080,30 @@ var rules = new Iterator({
 						eventSourceTemplateId: eventSourceTemplates.data.citizen
 					}
 				}
+			}, {
+				description: 'Update the global metric that account the actions for all issues.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTypeId: actionTypes.data.metricsUpdate,
+				eventTypeId: eventTypes.data.citizenAction,
+				fn: {
+					expression: "return { metric: 'ch.heigvd.ptl.sc.ce.actions.' + event.properties.type, timestamp: event.timestamp };",
+					sample: {
+						event: {
+							type: 'created'
+						}
+					}
+				}
+			}, {
+				description: 'Update the global metric that account the issue creations for all issues.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTypeId: actionTypes.data.metricsUpdate,
+				eventTypeId: eventTypes.data.citizenIssueCreation,
+				fn: {
+					expression: "return { metric: 'ch.heigvd.ptl.sc.ce.issues.creation', timestamp: event.timestamp };",
+					sample: {
+						event: {}
+					}
+				}
 			}]
 		}
 	},
@@ -1212,6 +1173,30 @@ var rules = new Iterator({
 							updatedOn: '2015-05-12H12:34:56:000Z'
 						},
 						eventSourceTemplateId: eventSourceTemplates.data.citizen
+					}
+				}
+			}, {
+				description: 'Update the global metric that account the actions for Yverdon issues.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTypeId: actionTypes.data.metricsUpdate,
+				eventTypeId: eventTypes.data.citizenAction,
+				fn: {
+					expression: "return { metric: 'ch.heigvd.ptl.sc.ce.yverdon.actions.' + event.properties.type, timestamp: event.timestamp };",
+					sample: {
+						event: {
+							type: 'created'
+						}
+					}
+				}
+			}, {
+				description: 'Update the global metric that account the issue creations for Yverdon issues.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTypeId: actionTypes.data.metricsUpdate,
+				eventTypeId: eventTypes.data.citizenIssueCreation,
+				fn: {
+					expression: "return { metric: 'ch.heigvd.ptl.sc.ce.yverdon.issues.creation', timestamp: event.timestamp };",
+					sample: {
+						event: {}
 					}
 				}
 			}]
@@ -1285,6 +1270,30 @@ var rules = new Iterator({
 						eventSourceTemplateId: eventSourceTemplates.data.citizen
 					}
 				}
+			}, {
+				description: 'Update the global metric that account the actions for Baulmes issues.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTypeId: actionTypes.data.metricsUpdate,
+				eventTypeId: eventTypes.data.citizenAction,
+				fn: {
+					expression: "return { metric: 'ch.heigvd.ptl.sc.ce.baulmes.actions.' + event.properties.type, timestamp: event.timestamp };",
+					sample: {
+						event: {
+							type: 'created'
+						}
+					}
+				}
+			}, {
+				description: 'Update the global metric that account the issue creations for Baulmes issues.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTypeId: actionTypes.data.metricsUpdate,
+				eventTypeId: eventTypes.data.citizenIssueCreation,
+				fn: {
+					expression: "return { metric: 'ch.heigvd.ptl.sc.ce.baulmes.issues.creation', timestamp: event.timestamp };",
+					sample: {
+						event: {}
+					}
+				}
 			}]
 		}
 	},
@@ -1354,6 +1363,30 @@ var rules = new Iterator({
 							updatedOn: '2015-05-12H12:34:56:000Z'
 						},
 						eventSourceTemplateId: eventSourceTemplates.data.citizen
+					}
+				}
+			}, {
+				description: 'Update the global metric that account the actions for Payerne issues.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTypeId: actionTypes.data.metricsUpdate,
+				eventTypeId: eventTypes.data.citizenAction,
+				fn: {
+					expression: "return { metric: 'ch.heigvd.ptl.sc.ce.payerne.actions.' + event.properties.type, timestamp: event.timestamp };",
+					sample: {
+						event: {
+							type: 'created'
+						}
+					}
+				}
+			}, {
+				description: 'Update the global metric that account the issue creations for Payerne issues.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTypeId: actionTypes.data.metricsUpdate,
+				eventTypeId: eventTypes.data.citizenIssueCreation,
+				fn: {
+					expression: "return { metric: 'ch.heigvd.ptl.sc.ce.payerne.issues.creation', timestamp: event.timestamp };",
+					sample: {
+						event: {}
 					}
 				}
 			}]
