@@ -55,19 +55,6 @@ scenario.addParam('citizen_url', {
 
 
 //var rules = {
-//	"SC-CE-AE-SLACK": {
-//		description: "Send text notification to slack when action occurred.",
-//		reference: "SC-CE-AE-SLACK",
-//		if: {
-//			eventSource: "smartCity/citizenEngagement",
-//			eventType: "actionEvent"
-//		},
-//		then: {
-//			actionTarget: "slack_url",
-//			actionSchema: "{\"type\":\"sendSlackMessage\",\"properties\":{\"channel\":\"iflux\",\"message\":\"{{ properties.user }} did an action ({{ properties.type }}) on issue ({{ properties.issueId }}) {{ properties.issue }}. The reason: {{ properties.reason }}. The action was performed on {{ properties.date }}.\"}}"
-//		}
-//	},
-//
 //	"SC-CE-AE-GLOBAL-METRICS": {
 //		description: "Update metrics globally on metrics action target.",
 //		reference: "SC-CE-AE-GLOBAL-METRICS",
@@ -91,19 +78,6 @@ scenario.addParam('citizen_url', {
 //		then: {
 //			actionTarget: "metrics_url",
 //			actionSchema: "{\"type\":\"updateMetric\",\"properties\":{\"metric\":\"ch.heigvd.ptl.sc.ce.{{properties.issueId}}.{{properties.type}}\",\"timestamp\":\"{{timestamp}}\"}}"
-//		}
-//	},
-//
-//	"SC-CE-IC-SLACK": {
-//		description: "Send text notification to slack on issue creation.",
-//		reference: "SC-CE-IC-SLACK",
-//		if: {
-//			eventSource: "smartCity/citizenEngagement",
-//			eventType: "issueCreated"
-//		},
-//		then: {
-//			actionTarget: "slack_url",
-//			actionSchema: "{\"type\":\"sendSlackMessage\",\"properties\":{\"channel\":\"iflux\",\"message\":\"{{ properties.creator }} submitted an issue [{{ properties.issueId }}] on {{ properties.date }}. The issue concern: {{ properties.description }} and is situated at [lat: {{ properties.where.lat }}, lng: {{ properties.where.lng }}].\"}}"
 //		}
 //	},
 //
@@ -146,59 +120,6 @@ scenario.addParam('citizen_url', {
 //		}
 //	},
 //
-//	"PUBLIBIKE-METRICS-FREEHOLDERS": {
-//		description: "Update metrics for each station (free holders).",
-//		reference: "PUBLIBIKE-METRICS-FREEHOLDERS",
-//		if: {
-//			eventSource: "publibike/eventSource",
-//			eventType: "movementEvent"
-//		},
-//		then: {
-//			actionTarget: "metrics_url",
-//			actionSchema: "{\"type\":\"updateMetric\",\"properties\":{\"metric\":\"io.iflux.publibike.holders.{{ properties.terminal.terminalid }}\",\"value\":{{ properties.new.freeholders }},\"timestamp\":\"{{timestamp}}\"}}"
-//		}
-//	},
-//
-//	"PUBLIBIKE-METRICS-BIKES": {
-//		description: "Update metrics for each station (bikes).",
-//		reference: "PUBLIBIKE-METRICS-BIKES",
-//		if: {
-//			eventSource: "publibike/eventSource",
-//			eventType: "movementEvent"
-//		},
-//		then: {
-//			actionTarget: "metrics_url",
-//			actionSchema: "{\"type\":\"updateMetric\",\"properties\":{\"metric\":\"io.iflux.publibike.bikes.{{ properties.terminal.terminalid }}\",\"value\":{{ properties.new.bikes }},\"timestamp\":\"{{timestamp}}\"}}"
-//		}
-//	},
-//
-//	"CITIZEN-VIEWER-NEW": {
-//		description: "Send data to render on the citizen map",
-//		reference: "CITIZEN-VIEWER-NEW",
-//		if: {
-//			eventSource: "smartCity/citizenEngagement",
-//			eventType: "issueCreated",
-//			eventProperties: {}
-//		},
-//		then: {
-//			actionTarget: "viewer_url",
-//			actionSchema: "{\"type\":\"newMarker\",\"properties\":{\"markerType\":\"citizen\",\"lat\":{{ properties.where.lat }},\"lng\":{{ properties.where.lng }},\"date\":\"{{ timestamp }}\",\"key\":\"id\",\"data\":{\"description\":\"{{ properties.description }}\",\"id\":\"{{ properties.issueId }}\",\"imageUrl\":\"{{ properties.imageUrl }}\",\"state\":\"{{ properties.state }}\",\"owner\":\"{{ properties.creator }}\",\"createdOn\":\"{{ properties.createdOn }}\",\"updatedOn\":\"{{ properties.updatedOn }}\",\"issueTypeCode\":\"{{ properties.issueTypeCode }}\"}}}"
-//		}
-//	},
-//
-//	"CITIZEN-VIEWER-UPDATE": {
-//		description: "Send updated data to render on the citizen map",
-//		reference: "CITIZEN-VIEWER-UPDATE",
-//		if: {
-//			eventSource: "smartCity/citizenEngagement",
-//			eventType: "issueStateChanged",
-//			eventProperties: {}
-//		},
-//		then: {
-//			actionTarget: "viewer_url",
-//			actionSchema: "{\"type\":\"updateMarker\",\"properties\":{\"markerType\":\"citizen\",\"lat\":{{ properties.where.lat }},\"lng\":{{ properties.where.lng }},\"date\":\"{{ timestamp }}\",\"key\":\"id\",\"data\":{\"description\":\"{{ properties.description }}\",\"id\":\"{{ properties.issueId }}\",\"imageUrl\":\"{{ properties.imageUrl }}\",\"state\":\"{{ properties.state }}\",\"owner\":\"{{ properties.creator }}\",\"createdOn\":\"{{ properties.createdOn }}\",\"updatedOn\":\"{{ properties.updatedOn }}\",\"issueTypeCode\":\"{{ properties.issueTypeCode }}\"}}}"
-//		}
-//	}
 //
 //}
 
@@ -518,7 +439,7 @@ var eventSourceInstances = new Iterator({
 	/////////////////////////////////////////////////////////
 	// Citizen for Yverdon event source
 	/////////////////////////////////////////////////////////
-	citizenYverdon: {
+	ifluxCitizenYverdon: {
 		template: eventSourceTemplates.data.citizen,
 	  data: {
 		  name: 'Citizen Engagement - Yverdon',
@@ -717,9 +638,10 @@ var actionTypes = new Iterator({
 			    },
 			    data: {
 				    type: 'object',
-						oneOf: [{
-							$ref: "#/definitions/bike"
-						}]
+						oneOf: [
+							{ $ref: "#/definitions/bike" },
+							{ $ref: "#/definitions/citizen"}
+						]
 			    }
 			  },
 			  required: [ 'markerId', 'lat', 'lng', 'date', 'data' ],
@@ -754,6 +676,29 @@ var actionTypes = new Iterator({
 				    },
 				    required: [ 'type', 'terminalId', 'name', 'street', 'city', 'zip', 'freeholders', 'bikes' ],
 				    additionalProperties: false
+			    },
+			    citizen: {
+				    type: {
+					    enum: [ 'citizen' ]
+				    },
+				    state: {
+					    enum: [ 'created', 'assigned', 'acknowledged', 'in_progress', 'rejected', 'resolved' ]
+				    },
+				    issueTypeCode: {
+					    type: 'string'
+				    },
+				    description: {
+					    type: 'string'
+				    },
+				    imageUrl: {
+					    type: 'string'
+				    },
+				    owner: {
+					    type: 'string'
+				    },
+				    createdOn: {
+					    type: 'date'
+				    }
 			    }
 		    }
 		  }
@@ -834,6 +779,86 @@ var actionTargetInstances = new Iterator({
 		template: actionTargetTemplates.data.metrics,
 	  data: {
 		  name: 'iFLUX Metrics Instance'
+	  }
+	},
+
+	/////////////////////////////////////////////////////////
+	// ViewBox for Citizen Yverdon - action target
+	/////////////////////////////////////////////////////////
+	ifluxViewBoxCitizenYverdon: {
+		template: actionTargetTemplates.data.viewBox,
+	  data: {
+		  name: 'iFLUX ViewBox for Citizen Yverdon',
+		  configuration: {
+			  mapName: 'Citizen Engagement - Yverdon',
+			  expiration: 5 * 60 * 1000,
+			  mapConfig: {
+				  centerLat: 46.77518,
+				  centerLng: 6.6369435,
+				  initialZoom: 15,
+				  legendType: 'citizen'
+			  }
+		  }
+	  }
+	},
+
+	/////////////////////////////////////////////////////////
+	// ViewBox for Citizen Baulmes - action target
+	/////////////////////////////////////////////////////////
+	ifluxViewBoxCitizenBaulmes: {
+		template: actionTargetTemplates.data.viewBox,
+	  data: {
+		  name: 'iFLUX ViewBox for Citizen Baulmes',
+		  configuration: {
+			  mapName: 'Citizen Engagement - Baulmes',
+			  expiration: 5 * 60 * 1000,
+			  mapConfig: {
+				  centerLat: 46.79221800961638,
+				  centerLng: 6.541028022766113,
+				  initialZoom: 15,
+				  legendType: 'citizen'
+			  }
+		  }
+	  }
+	},
+
+	/////////////////////////////////////////////////////////
+	// ViewBox for Citizen Payerne - action target
+	/////////////////////////////////////////////////////////
+	ifluxViewBoxCitizenPayerne: {
+		template: actionTargetTemplates.data.viewBox,
+	  data: {
+		  name: 'iFLUX ViewBox for Citizen Payerne',
+		  configuration: {
+			  mapName: 'Citizen Engagement - Payerne',
+			  expiration: 5 * 60 * 1000,
+			  mapConfig: {
+				  centerLat: 46.83532443497212,
+				  centerLng: 6.956748962402344,
+				  initialZoom: 15,
+				  legendType: 'citizen'
+			  }
+		  }
+	  }
+	},
+
+	/////////////////////////////////////////////////////////
+	// ViewBox for Citizen action target
+	/////////////////////////////////////////////////////////
+	ifluxViewBoxCitizenAll: {
+		template: actionTargetTemplates.data.viewBox,
+	  data: {
+		  name: 'iFLUX ViewBox for Citizen',
+		  configuration: {
+			  mapName: 'Citizen Engagement - All Cities',
+			  expiration: 5 * 60 * 1000,
+			  mapConfig: {
+				  centerLat: 46.83532443497212,
+				  centerLng: 6.514763832092285,
+				  initialZoom: 11,
+				  legendType: 'citizen'
+			  }
+		  }
 	  }
 	}
 });
@@ -1068,6 +1093,265 @@ var rules = new Iterator({
 							issue: 'Something went wrong',
 							state: 'created',
 							date: '2015-05-12H12:34:56:000Z'
+						},
+						eventSourceTemplateId: eventSourceTemplates.data.citizen
+					}
+				}
+			}, {
+				description: 'Update the visualization of the issue creation on MapBox.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBoxCitizenAll,
+				actionTypeId: actionTypes.data.viewBoxMarker,
+				eventTypeId: eventTypes.data.citizenIssueCreation,
+				fn: {
+					expression: "return { markerId: event.properties.issueId, lat: event.properties.lat, lng: event.properties.lng, date: event.properties.createdOn, data: { type: 'citizen', description: event.properties.description, imageUrl: event.properties.imageUrl, state: event.properties.state, owner: event.properties.creator, createdOn: event.properties.createdOn, updatedOn: event.properties.updatedOn, issueTypeCode: event.properties.issueTypeCode }};",
+					sample: {
+						event: {
+							issueId: 'asdgdgqwrasd',
+							imageUrl: '',
+							creator: 'Henri Dupont',
+							description: 'Something went wrong',
+							state: 'created',
+							issueTypeCode: 'cdn',
+							lat: 1.2345,
+							lng: 6.7890,
+							createdOn: '2015-05-12H12:34:56:000Z',
+							updatedOn: '2015-05-12H12:34:56:000Z'
+						},
+						eventSourceTemplateId: eventSourceTemplates.data.citizen
+					}
+				}
+			}, {
+				description: 'Update the visualization of the issue status change on MapBox.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBoxCitizenAll,
+				actionTypeId: actionTypes.data.viewBoxMarker,
+				eventTypeId: eventTypes.data.citizenIssueStatusChange,
+				fn: {
+					expression: "return { markerId: event.properties.issueId, lat: event.properties.lat, lng: event.properties.lng, date: event.properties.createdOn, data: { type: 'citizen', description: event.properties.description, imageUrl: event.properties.imageUrl, state: event.properties.state, owner: event.properties.creator, createdOn: event.properties.createdOn, updatedOn: event.properties.updatedOn, issueTypeCode: event.properties.issueTypeCode }};",
+					sample: {
+						event: {
+							issueId: 'asdgdgqwrasd',
+							imageUrl: '',
+							creator: 'Henri Dupont',
+							description: 'Something went wrong',
+							state: 'created',
+							issueTypeCode: 'cdn',
+							lat: 1.2345,
+							lng: 6.7890,
+							createdOn: '2015-05-12H12:34:56:000Z',
+							updatedOn: '2015-05-12H12:34:56:000Z'
+						},
+						eventSourceTemplateId: eventSourceTemplates.data.citizen
+					}
+				}
+			}]
+		}
+	},
+
+	/////////////////////////////////////////////////////////
+	// iFLUX Citizen operations for Yverdon
+	/////////////////////////////////////////////////////////
+	citizenYverdonOperationsRule: {
+		data: {
+			name: 'Citizen operations for Yverdon',
+			description: 'Broadcast Citizen Operations for Yverdon.',
+			active: true,
+			conditions: [{
+				description: 'Detects issue creation.',
+				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenYverdon,
+				eventTypeId: eventTypes.data.citizenIssueCreation
+			}, {
+				description: 'Detects issue status changes.',
+				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenYverdon,
+				eventTypeId: eventTypes.data.citizenIssueStatusChange
+			}, {
+				description: 'Detects actions performed on issues.',
+				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenYverdon,
+				eventTypeId: eventTypes.data.citizenAction
+			}],
+			transformations: [{
+				description: 'Update the visualization of the issue creation in Yverdon on MapBox.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBoxCitizenYverdon,
+				actionTypeId: actionTypes.data.viewBoxMarker,
+				eventTypeId: eventTypes.data.citizenIssueCreation,
+				fn: {
+					expression: "return { markerId: event.properties.issueId, lat: event.properties.lat, lng: event.properties.lng, date: event.properties.createdOn, data: { type: 'citizen', description: event.properties.description, imageUrl: event.properties.imageUrl, state: event.properties.state, owner: event.properties.creator, createdOn: event.properties.createdOn, updatedOn: event.properties.updatedOn, issueTypeCode: event.properties.issueTypeCode }};",
+					sample: {
+						event: {
+							issueId: 'asdgdgqwrasd',
+							imageUrl: '',
+							creator: 'Henri Dupont',
+							description: 'Something went wrong',
+							state: 'created',
+							issueTypeCode: 'cdn',
+							lat: 1.2345,
+							lng: 6.7890,
+							createdOn: '2015-05-12H12:34:56:000Z',
+							updatedOn: '2015-05-12H12:34:56:000Z'
+						},
+						eventSourceTemplateId: eventSourceTemplates.data.citizen
+					}
+				}
+			}, {
+				description: 'Update the visualization of the issue status change in Yverdon on MapBox.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBoxCitizenYverdon,
+				actionTypeId: actionTypes.data.viewBoxMarker,
+				eventTypeId: eventTypes.data.citizenIssueStatusChange,
+				fn: {
+					expression: "return { markerId: event.properties.issueId, lat: event.properties.lat, lng: event.properties.lng, date: event.properties.createdOn, data: { type: 'citizen', description: event.properties.description, imageUrl: event.properties.imageUrl, state: event.properties.state, owner: event.properties.creator, createdOn: event.properties.createdOn, updatedOn: event.properties.updatedOn, issueTypeCode: event.properties.issueTypeCode }};",
+					sample: {
+						event: {
+							issueId: 'asdgdgqwrasd',
+							imageUrl: '',
+							creator: 'Henri Dupont',
+							description: 'Something went wrong',
+							state: 'created',
+							issueTypeCode: 'cdn',
+							lat: 1.2345,
+							lng: 6.7890,
+							createdOn: '2015-05-12H12:34:56:000Z',
+							updatedOn: '2015-05-12H12:34:56:000Z'
+						},
+						eventSourceTemplateId: eventSourceTemplates.data.citizen
+					}
+				}
+			}]
+		}
+	},
+
+	/////////////////////////////////////////////////////////
+	// iFLUX Citizen operations for Baulmes
+	/////////////////////////////////////////////////////////
+	citizenBaulmesOperationsRule: {
+		data: {
+			name: 'Citizen operations for Baulmes',
+			description: 'Broadcast Citizen Operations for Baulmes.',
+			active: true,
+			conditions: [{
+				description: 'Detects issue creation.',
+				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenBaulmes,
+				eventTypeId: eventTypes.data.citizenIssueCreation
+			}, {
+				description: 'Detects issue status changes.',
+				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenBaulmes,
+				eventTypeId: eventTypes.data.citizenIssueStatusChange
+			}, {
+				description: 'Detects actions performed on issues.',
+				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenBaulmes,
+				eventTypeId: eventTypes.data.citizenAction
+			}],
+			transformations: [{
+				description: 'Update the visualization of the issue creation in Baulmes on MapBox.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBoxCitizenBaulmes,
+				actionTypeId: actionTypes.data.viewBoxMarker,
+				eventTypeId: eventTypes.data.citizenIssueCreation,
+				fn: {
+					expression: "return { markerId: event.properties.issueId, lat: event.properties.lat, lng: event.properties.lng, date: event.properties.createdOn, data: { type: 'citizen', description: event.properties.description, imageUrl: event.properties.imageUrl, state: event.properties.state, owner: event.properties.creator, createdOn: event.properties.createdOn, updatedOn: event.properties.updatedOn, issueTypeCode: event.properties.issueTypeCode }};",
+					sample: {
+						event: {
+							issueId: 'asdgdgqwrasd',
+							imageUrl: '',
+							creator: 'Henri Dupont',
+							description: 'Something went wrong',
+							state: 'created',
+							issueTypeCode: 'cdn',
+							lat: 1.2345,
+							lng: 6.7890,
+							createdOn: '2015-05-12H12:34:56:000Z',
+							updatedOn: '2015-05-12H12:34:56:000Z'
+						},
+						eventSourceTemplateId: eventSourceTemplates.data.citizen
+					}
+				}
+			}, {
+				description: 'Update the visualization of the issue status change in Baulmes on MapBox.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBoxCitizenBaulmes,
+				actionTypeId: actionTypes.data.viewBoxMarker,
+				eventTypeId: eventTypes.data.citizenIssueStatusChange,
+				fn: {
+					expression: "return { markerId: event.properties.issueId, lat: event.properties.lat, lng: event.properties.lng, date: event.properties.createdOn, data: { type: 'citizen', description: event.properties.description, imageUrl: event.properties.imageUrl, state: event.properties.state, owner: event.properties.creator, createdOn: event.properties.createdOn, updatedOn: event.properties.updatedOn, issueTypeCode: event.properties.issueTypeCode }};",
+					sample: {
+						event: {
+							issueId: 'asdgdgqwrasd',
+							imageUrl: '',
+							creator: 'Henri Dupont',
+							description: 'Something went wrong',
+							state: 'created',
+							issueTypeCode: 'cdn',
+							lat: 1.2345,
+							lng: 6.7890,
+							createdOn: '2015-05-12H12:34:56:000Z',
+							updatedOn: '2015-05-12H12:34:56:000Z'
+						},
+						eventSourceTemplateId: eventSourceTemplates.data.citizen
+					}
+				}
+			}]
+		}
+	},
+
+	/////////////////////////////////////////////////////////
+	// iFLUX Citizen operations for Payerne
+	/////////////////////////////////////////////////////////
+	citizenPayerneOperationsRule: {
+		data: {
+			name: 'Citizen operations for Payerne',
+			description: 'Broadcast Citizen Operations for Payerne.',
+			active: true,
+			conditions: [{
+				description: 'Detects issue creation.',
+				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenPayerne,
+				eventTypeId: eventTypes.data.citizenIssueCreation
+			}, {
+				description: 'Detects issue status changes.',
+				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenPayerne,
+				eventTypeId: eventTypes.data.citizenIssueStatusChange
+			}, {
+				description: 'Detects actions performed on issues.',
+				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenPayerne,
+				eventTypeId: eventTypes.data.citizenAction
+			}],
+			transformations: [{
+				description: 'Update the visualization of the issue creation in Payerne on MapBox.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBoxCitizenPayerne,
+				actionTypeId: actionTypes.data.viewBoxMarker,
+				eventTypeId: eventTypes.data.citizenIssueCreation,
+				fn: {
+					expression: "return { markerId: event.properties.issueId, lat: event.properties.lat, lng: event.properties.lng, date: event.properties.createdOn, data: { type: 'citizen', description: event.properties.description, imageUrl: event.properties.imageUrl, state: event.properties.state, owner: event.properties.creator, createdOn: event.properties.createdOn, updatedOn: event.properties.updatedOn, issueTypeCode: event.properties.issueTypeCode }};",
+					sample: {
+						event: {
+							issueId: 'asdgdgqwrasd',
+							imageUrl: '',
+							creator: 'Henri Dupont',
+							description: 'Something went wrong',
+							state: 'created',
+							issueTypeCode: 'cdn',
+							lat: 1.2345,
+							lng: 6.7890,
+							createdOn: '2015-05-12H12:34:56:000Z',
+							updatedOn: '2015-05-12H12:34:56:000Z'
+						},
+						eventSourceTemplateId: eventSourceTemplates.data.citizen
+					}
+				}
+			}, {
+				description: 'Update the visualization of the issue status change in Payerne on MapBox.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBoxCitizenPayerne,
+				actionTypeId: actionTypes.data.viewBoxMarker,
+				eventTypeId: eventTypes.data.citizenIssueStatusChange,
+				fn: {
+					expression: "return { markerId: event.properties.issueId, lat: event.properties.lat, lng: event.properties.lng, date: event.properties.createdOn, data: { type: 'citizen', description: event.properties.description, imageUrl: event.properties.imageUrl, state: event.properties.state, owner: event.properties.creator, createdOn: event.properties.createdOn, updatedOn: event.properties.updatedOn, issueTypeCode: event.properties.issueTypeCode }};",
+					sample: {
+						event: {
+							issueId: 'asdgdgqwrasd',
+							imageUrl: '',
+							creator: 'Henri Dupont',
+							description: 'Something went wrong',
+							state: 'created',
+							issueTypeCode: 'cdn',
+							lat: 1.2345,
+							lng: 6.7890,
+							createdOn: '2015-05-12H12:34:56:000Z',
+							updatedOn: '2015-05-12H12:34:56:000Z'
 						},
 						eventSourceTemplateId: eventSourceTemplates.data.citizen
 					}
