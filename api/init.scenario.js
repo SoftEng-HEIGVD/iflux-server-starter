@@ -48,6 +48,9 @@ scenario.addParam('metrics_url', {
 	default: process.env.METRICS_URL
 });
 
+scenario.addParam('citizen_url', {
+	default: process.env.CITIZEN_URL
+});
 
 
 
@@ -205,15 +208,20 @@ function Iterator(data) {
 	this.data = data;
 	this.start = 0;
 
+	this.dataIdx = _.reduce(data, function(memo, value, key) {
+		memo.push(key);
+		return memo;
+	}, []);
+
 	this.next = function() {
-		if (this.start < this.data.length) {
+		if (this.start < this.dataIdx.length) {
 			this.start++;
-			return this.data[this.start - 1];
+			return this.data[this.dataIdx[this.start - 1]];
 		}
 	};
 
 	this.hasNext = function() {
-		return this.start < this.data.length;
+		return this.start < this.dataIdx.length;
 	};
 }
 
@@ -221,437 +229,853 @@ function Iterator(data) {
 // START OF DATA
 // ############################################################################################
 
-var eventSourceTemplates = new Iterator([{
-	data: {
-		name: 'Publibike',
-		public: true
-	}
-}]);
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+// EVENT SOURCE TEMPLATES
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+var eventSourceTemplates = new Iterator({
+	/////////////////////////////////////////////////////////
+	// Publibike event source template
+	/////////////////////////////////////////////////////////
+	publibike: {
+		data: {
+			name: 'Publibike',
+				public: true
+		}
+	},
 
-var eventTypes = new Iterator([{
-	template: eventSourceTemplates.data[0],
-	data: {
-		name: 'Publibike movement event',
-		description: 'Represent a movement in the stock of bikes at any station',
-		type: function() { return this.param('iflux_schemas_url') + '/eventTypes/publibikeMovement'; },
-		schema: {
-			$schema: 'http://json-schema.org/draft-04/schema#',
-	    type: 'object',
-			properties: {
-				terminalid: {
-					type: 'string'
-				},
-				terminal: {
+	/////////////////////////////////////////////////////////
+	// Citizen event source template
+	/////////////////////////////////////////////////////////
+	citizen: {
+		data: {
+			name: 'Citizen Engagement',
+			public: true,
+			configuration: {
+				schema: {
+					$schema: 'http://json-schema.org/draft-04/schema#',
 					type: 'object',
 					properties: {
-						name: {
-							type: 'string'
+						all: {
+							type: 'boolean'
 						},
-						infotext: {
-							type: 'string'
+						'default': {
+							type: 'boolean'
 						},
-						zip: {
-							type: 'string'
+						zipCodes: {
+							type: 'array',
+							minItems: 1,
+							items: {
+								type: 'integer'
+							},
+							uniqueItems: true
 						},
-						city: {
-							type: 'string'
-						},
-						country: {
-							type: 'string'
-						},
-						lat: {
-							type: 'number'
-						},
-						lng: {
-							type: 'number'
-						},
-						image: {
-							type: 'string'
-						}
 					}
 				},
-				old: {
+				url: function () {
+					return this.param('citizen_url') + '/configure';
+				}
+			}
+		}
+	}
+});
+
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+// EVENT TYPES
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+var eventTypes = new Iterator({
+	/////////////////////////////////////////////////////////
+	// Publibike movement event type
+	/////////////////////////////////////////////////////////
+	publibikeMovement: {
+		template: eventSourceTemplates.data.publibike,
+		data: {
+			name: 'Publibike movement event',
+			description: 'Represent a movement in the stock of bikes at any station',
+			type: function() { return this.param('iflux_schemas_url') + '/eventTypes/publibikeMovement'; },
+			schema: {
+				$schema: 'http://json-schema.org/draft-04/schema#',
 					type: 'object',
 					properties: {
-						freeholders: {
-							type: 'integer'
-						},
-						bikes: {
-							type: 'integer'
+					terminalid: {
+						type: 'string'
+					},
+					terminal: {
+						type: 'object',
+							properties: {
+							name: {
+								type: 'string'
+							},
+							infotext: {
+								type: 'string'
+							},
+							zip: {
+								type: 'string'
+							},
+							city: {
+								type: 'string'
+							},
+							country: {
+								type: 'string'
+							},
+							lat: {
+								type: 'number'
+							},
+							lng: {
+								type: 'number'
+							},
+							image: {
+								type: 'string'
+							}
 						}
-					}
-				},
-				new: {
-					type: 'object',
-					properties: {
-						freeholders: {
-							type: 'integer'
-						},
-						bikes: {
-							type: 'integer'
+					},
+					old: {
+						type: 'object',
+							properties: {
+							freeholders: {
+								type: 'integer'
+							},
+							bikes: {
+								type: 'integer'
+							}
+						}
+					},
+					new: {
+						type: 'object',
+							properties: {
+							freeholders: {
+								type: 'integer'
+							},
+							bikes: {
+								type: 'integer'
+							}
 						}
 					}
 				}
 			}
 		}
-	}
-}]);
+	},
 
-var eventSourceInstances = new Iterator([{
-	template: eventSourceTemplates.data[0],
-  data: {
-	  name: 'Publibike singleton data poller'
-  }
-}]);
+	/////////////////////////////////////////////////////////
+	// Citizen issue creation event type
+	/////////////////////////////////////////////////////////
+	citizenIssueCreation: {
+		template: eventSourceTemplates.data.citizen,
+		data: {
+			name: 'Issue creation',
+			description: 'Issue created on Citizen Engagement',
+			type: function () {
+				return this.param('iflux_schemas_url') + '/eventTypes/citizenIssue';
+			},
+			schema: {
+				$schema: 'http://json-schema.org/draft-04/schema#',
+				type: 'object',
+				properties: {
+					issueId: {
+						type: 'string'
+					},
+					imageUrl: {
+						type: 'string'
+					},
+					creator: {
+						type: 'string'
+					},
+					description: {
+						type: 'string'
+					},
+					state: {
+						enum: ['created', 'assigned', 'acknowledged', 'in_progress', 'rejected', 'resolved']
+					},
+					issueTypeCode: {
+						type: 'string'
+					},
+					lat: {
+						type: 'number'
+					},
+					lng: {
+						type: 'number'
+					},
+					createdOn: {
+						type: 'date'
+					},
+					updatedOn: {
+						type: 'date'
+					}
+				}
+			}
+		}
+	},
 
-var actionTargetTemplates = new Iterator([{
-	data: {
-	  name: 'iFLUX Slack Gateway',
-	  public: true,
-	  configuration: {
-	    schema: {
-	      $schema: 'http://json-schema.org/draft-04/schema#',
-	      type: 'object',
-	      properties: {
-	        token: {
-	          type: 'string'
-	        }
-	      },
-	      additionalProperties: false,
-	      required: [ 'token' ]
-	    },
-	    url: function() { return this.param('slack_url') + '/configure'; }
-	  },
-	  target: {
-	    url: function() { return this.param('slack_url') + '/actions'; }
-	  }
-	}
-}, {
-	data: {
-	  name: 'iFLUX ViewBox',
-	  public: true,
-	  configuration: {
-	    schema: {
-	      $schema: 'http://json-schema.org/draft-04/schema#',
-	      type: 'object',
-	      properties: {
-	        mapName: {
-	          type: 'string'
-	        },
-		      expiration: {
-			      type: 'integer'
-		      },
-		      mapConfig: {
-			      type: 'object',
-			      properties: {
-				      centerLat: {
-					      type: 'number'
-				      },
-				      centerLng: {
-					      type: 'number'
-				      },
-				      initialZoom: {
-					      type: 'integer'
-				      },
-				      legendType: {
-					      type: 'string'
-				      }
-			      },
-			      required: [ 'centerLat', 'centerLng', 'initialZoom', 'legendType' ]
-		      }
-	      },
-	      additionalProperties: false,
-	      required: [ 'mapName', 'mapConfig' ]
-	    },
-	    url: function() { return this.param('viewbox_url') + '/configure'; }
-	  },
-	  target: {
-	    url: function() { return this.param('viewbox_url') + '/actions'; }
-	  }
-	}
-}, {
-	data: {
-	  name: 'iFLUX Metrics',
-	  public: true,
-	  target: {
-	    url: function() { return this.param('metrics_url') + '/actions'; }
-	  }
-	}
-}]);
+	/////////////////////////////////////////////////////////
+	// Citizen issue status change event type
+	/////////////////////////////////////////////////////////
+	citizenIssueStatusChange: {
+		template: eventSourceTemplates.data.citizen,
+		data: {
+			name: 'Issue status change',
+			description: 'Issue state changed on Citizen Engagement',
+			type: function() { return this.param('iflux_schemas_url') + '/eventTypes/citizenStatus'; },
+			schema: {
+				$schema: 'http://json-schema.org/draft-04/schema#',
+		    type: 'object',
+				properties: {
+					issueId: {
+						type: 'string'
+					},
+					imageUrl: {
+						type: 'string'
+					},
+					creator: {
+						type: 'string'
+					},
+					description: {
+						type: 'string'
+					},
+					state: {
+						enum: [ 'created', 'assigned', 'acknowledged', 'in_progress', 'rejected', 'resolved' ]
+					},
+					issueTypeCode: {
+						type: 'string'
+					},
+					lat: {
+						type: 'number'
+					},
+					lng: {
+						type: 'number'
+					},
+					createdOn: {
+						type: 'date'
+					},
+					updatedOn: {
+						type: 'date'
+					}
+				}
+			}
+		}
+	},
 
-var actionTypes = new Iterator([{
-	template: actionTargetTemplates.data[0],
-	data: {
-	  name: 'Slack messages',
-	  description: 'Send a message to slack.',
-		type: function() { return this.param('iflux_schemas_url') + '/actionTypes/slackMessageSending'; },
-	  schema: {
-	    $schema: 'http://json-schema.org/draft-04/schema#',
-	    type: 'object',
-	    properties: {
-	      message: {
-	        type: 'string'
-	      }
-	    }
-	  }
+	/////////////////////////////////////////////////////////
+	// Citizen action event type
+	/////////////////////////////////////////////////////////
+	citizenAction: {
+		template: eventSourceTemplates.data.citizen,
+		data: {
+			name: 'Action taken on issues',
+			description: 'Action performed on issue on Citizen Engagement',
+			type: function () {
+				return this.param('iflux_schemas_url') + '/eventTypes/citizenAction';
+			},
+			schema: {
+				$schema: 'http://json-schema.org/draft-04/schema#',
+				type: 'object',
+				properties: {
+					type: {
+						enum: ['comment', 'addTags', 'removeTags', 'replaceTags', 'assign', 'ack', 'start', 'reject', 'resolve']
+					},
+					reason: {
+						type: 'string'
+					},
+					user: {
+						type: 'string'
+					},
+					issueId: {
+						type: 'string'
+					},
+					issue: {
+						type: 'string'
+					},
+					state: {
+						enum: ['created', 'assigned', 'acknowledged', 'in_progress', 'rejected', 'resolved']
+					},
+					date: {
+						type: 'date'
+					}
+				}
+			}
+		}
 	}
-}, {
-	template: actionTargetTemplates.data[1],
-	data: {
-	  name: 'View marker',
-	  description: 'Add or update a view marker.',
-		type: function() { return this.param('iflux_schemas_url') + '/actionTypes/viewMarker'; },
-	  schema: {
-	    $schema: 'http://json-schema.org/draft-04/schema#',
-	    type: 'object',
-	    properties: {
-		    markerId: {
-			    type: 'string'
-		    },
-	      lat: {
-	        type: 'number'
-	      },
-		    lng: {
-			    type: 'number'
-		    },
-		    date: {
-			    type: 'date'
-		    },
-		    data: {
-			    type: 'object',
-					oneOf: [{
-						$ref: "#/definitions/bike"
-					}]
-		    }
-		  },
-		  required: [ 'markerId', 'lat', 'lng', 'date', 'data' ],
-		  additionalProperties: false,
-	    definitions: {
-		    bike: {
-			    properties: {
-				    type: {
-					    enum: ['bike']
-				    },
-				    terminalId: {
-					    type: 'string'
-				    },
-				    name: {
-					    type: 'string'
-				    },
-				    street: {
-					    type: 'string'
-				    },
-				    city: {
-					    type: 'string'
-				    },
-				    zip: {
-					    type: 'string'
-				    },
-				    freeholders: {
-					    type: 'integer'
-				    },
-				    bikes: {
-					    type: 'integer'
-				    }
-			    },
-			    required: [ 'type', 'terminalId', 'name', 'street', 'city', 'zip', 'freeholders', 'bikes' ],
-			    additionalProperties: false
-		    }
-	    }
-	  }
-	}
-}, {
-	template: actionTargetTemplates.data[2],
-	data: {
-	  name: 'Metric update',
-	  description: 'Update metrics.',
-		type: function() { return this.param('iflux_schemas_url') + '/actionTypes/updateMetric'; },
-	  schema: {
-	    $schema: 'http://json-schema.org/draft-04/schema#',
-	    type: 'object',
-	    properties: {
-	      metric: {
-	        type: 'string'
-	      },
-		    value: {
-			    type: 'number'
-		    },
-		    timestamp: {
-			    type: 'date'
-		    }
-	    }
-	  }
-	}
-}]);
+});
 
-var actionTargetInstances = new Iterator([{
-	template: actionTargetTemplates.data[0],
-  data: {
-	  name: 'iFLUX Slack Gateway Instance',
-	  configuration: function() { return { token: this.param('slack_bot_token') }; }
-  }
-}, {
-	template: actionTargetTemplates.data[1],
-  data: {
-	  name: 'iFLUX ViewBox Publibike Instance',
-	  configuration: {
-		  mapName: 'Publibike visualization',
-		  expiration: 24 * 60 * 60 * 1000,
-		  mapConfig: {
-			  centerLat: 46.801111,
-			  centerLng: 8.226667,
-			  initialZoom: 9,
-			  legendType: 'bike'
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+// EVENT SOURCES
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+var eventSourceInstances = new Iterator({
+	/////////////////////////////////////////////////////////
+	// Publibike event source
+	/////////////////////////////////////////////////////////
+	ifluxPublibike: {
+		template: eventSourceTemplates.data.publibike,
+		data: {
+			name: 'Publibike singleton data poller'
+		}
+	},
+
+	/////////////////////////////////////////////////////////
+	// Citizen for Yverdon event source
+	/////////////////////////////////////////////////////////
+	citizenYverdon: {
+		template: eventSourceTemplates.data.citizen,
+	  data: {
+		  name: 'Citizen Engagement - Yverdon',
+		  configuration: {
+			  zipCodes: [ 1400, 1401 ]
 		  }
 	  }
-  }
-}, {
-	template: actionTargetTemplates.data[2],
-  data: {
-	  name: 'iFLUX Metrics Instance'
-  }
-}]);
+	},
 
-var rules = new Iterator([{
-	data: {
-		name: 'Publibike movements',
-		description: 'Broadcast publibike movements.',
-		active: true,
-		conditions: [{
-			description: 'Detect bike movements',
-			eventTypeId: eventTypes.data[0]
-		}],
-		transformations: [{
-			description: 'Broadcast a message on the Slack channel',
-			actionTargetInstanceId: actionTargetInstances.data[0],
-			actionTypeId: actionTypes.data[0],
-			eventTypeId: eventTypes.data[0],
-			fn: {
-				expression: "return { channel: 'iflux', message: 'Only ' + event.properties.new.bikes + ' bike(s) available at the station ' + event.properties.terminal.name + ', ' + event.properties.terminal.street + ', ' + event.properties.terminal.zip + ' ' + event.properties.terminal.city + '.' };",
-				sample: {
-					event: {
-						terminalid: 'asdfghjkl',
-						terminal: {
-							name: 'Y-Parc',
-							infotext: 'Parc Scientifique - Yverdon',
-							zip: '1400',
-							city: 'Yverdon-les-Bains',
-							country: 'Switzerland',
-							lat: 46.764968,
-							lng: 6.646069,
-							image: ''
-						},
-						old: {
-							freeholders: 10,
-							bikes: 3
-						},
-						new: {
-							freeholders: 11,
-							bikes: 2
-						}
-					},
-					eventSourceTemplateId: eventSourceTemplates.data[0]
-				}
+	/////////////////////////////////////////////////////////
+	// Citizen for Baulmes event source
+	/////////////////////////////////////////////////////////
+	ifluxCitizenBaulmes: {
+		template: eventSourceTemplates.data.citizen,
+	  data: {
+		  name: 'Citizen Engagement - Baulmes',
+		  configuration: {
+			  zipCodes: [ 1446 ]
+		  }
+	  }
+	},
+
+	/////////////////////////////////////////////////////////
+	// Citizen for Payerne event source
+	/////////////////////////////////////////////////////////
+	ifluxCitizenPayerne: {
+		template: eventSourceTemplates.data.citizen,
+	  data: {
+		  name: 'Citizen Engagement - Payerne',
+		  configuration: {
+			  zipCodes: [ 1530 ]
+		  }
+	  }
+	},
+
+	/////////////////////////////////////////////////////////
+	// Citizen for All event source
+	/////////////////////////////////////////////////////////
+	ifluxCitizenAll: {
+		template: eventSourceTemplates.data.citizen,
+		data: {
+			name: 'Citizen Engagement - All',
+			configuration: {
+				all: true
 			}
-		}, {
-			description: 'Notify a change in station to allow a visualization.',
-			actionTargetInstanceId: actionTargetInstances.data[1],
-			actionTypeId: actionTypes.data[1],
-			eventTypeId: eventTypes.data[0],
-			fn: {
-				expression: "return { markerId: event.properties.terminal.terminalid, lat: event.properties.terminal.lat, lng: event.properties.terminal.lng, date: event.timestamp, data: { type: 'bike', name: event.properties.terminal.name, street: event.properties.terminal.street, city: event.properties.terminal.street, zip: event.properties.terminal.zip, freeholders: event.properties.new.freeholders, bikes: event.properties.new.bikes }};",
-				sample: {
-					event: {
-						terminalid: 'asdfghjkl',
-						terminal: {
-							name: 'Y-Parc',
-							infotext: 'Parc Scientifique - Yverdon',
-							zip: '1400',
-							city: 'Yverdon-les-Bains',
-							country: 'Switzerland',
-							lat: 46.764968,
-							lng: 6.646069,
-							image: ''
-						},
-						old: {
-							freeholders: 10,
-							bikes: 3
-						},
-						new: {
-							freeholders: 11,
-							bikes: 2
-						}
-					},
-					eventSourceTemplateId: eventSourceTemplates.data[0]
-				}
-			}
-		}, {
-			description: 'Update free holders metric for each station.',
-			actionTargetInstanceId: actionTargetInstances.data[2],
-			actionTypeId: actionTypes.data[2],
-			eventTypeId: eventTypes.data[0],
-			fn: {
-				expression: "return { metric: 'io.iflux.publibike.holders.' + event.properties.terminal.terminalid, value: event.properties.new.freeholders, timestamp: event.timestamp };",
-				sample: {
-					event: {
-						terminalid: 'asdfghjkl',
-						terminal: {
-							name: 'Y-Parc',
-							infotext: 'Parc Scientifique - Yverdon',
-							zip: '1400',
-							city: 'Yverdon-les-Bains',
-							country: 'Switzerland',
-							lat: 46.764968,
-							lng: 6.646069,
-							image: ''
-						},
-						old: {
-							freeholders: 10,
-							bikes: 3
-						},
-						new: {
-							freeholders: 11,
-							bikes: 2
-						}
-					},
-					eventSourceTemplateId: eventSourceTemplates.data[0]
-				}
-			}
-		}, {
-			description: 'Update bikes metric for each station.',
-			actionTargetInstanceId: actionTargetInstances.data[2],
-			actionTypeId: actionTypes.data[2],
-			eventTypeId: eventTypes.data[0],
-			fn: {
-				expression: "return { metric: 'io.iflux.publibike.bikes.' + event.properties.terminal.terminalid, value: event.properties.new.bikes, timestamp: event.timestamp };",
-				sample: {
-					event: {
-						terminalid: 'asdfghjkl',
-						terminal: {
-							name: 'Y-Parc',
-							infotext: 'Parc Scientifique - Yverdon',
-							zip: '1400',
-							city: 'Yverdon-les-Bains',
-							country: 'Switzerland',
-							lat: 46.764968,
-							lng: 6.646069,
-							image: ''
-						},
-						old: {
-							freeholders: 10,
-							bikes: 3
-						},
-						new: {
-							freeholders: 11,
-							bikes: 2
-						}
-					},
-					eventSourceTemplateId: eventSourceTemplates.data[0]
-				}
-			}
-		}]
+		}
 	}
-}]);
+});
+
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+// ACTION TARGET TEMPLATES
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+var actionTargetTemplates = new Iterator({
+	/////////////////////////////////////////////////////////
+	// Slack action target template
+	/////////////////////////////////////////////////////////
+	slack: {
+		data: {
+		  name: 'iFLUX Slack Gateway',
+		  public: true,
+		  configuration: {
+		    schema: {
+		      $schema: 'http://json-schema.org/draft-04/schema#',
+		      type: 'object',
+		      properties: {
+		        token: {
+		          type: 'string'
+		        }
+		      },
+		      additionalProperties: false,
+		      required: [ 'token' ]
+		    },
+		    url: function() { return this.param('slack_url') + '/configure'; }
+		  },
+		  target: {
+		    url: function() { return this.param('slack_url') + '/actions'; }
+		  }
+		}
+	},
+
+	/////////////////////////////////////////////////////////
+	// ViewBox action target template
+	/////////////////////////////////////////////////////////
+	viewBox: {
+		data: {
+		  name: 'iFLUX ViewBox',
+		  public: true,
+		  configuration: {
+		    schema: {
+		      $schema: 'http://json-schema.org/draft-04/schema#',
+		      type: 'object',
+		      properties: {
+		        mapName: {
+		          type: 'string'
+		        },
+			      expiration: {
+				      type: 'integer'
+			      },
+			      mapConfig: {
+				      type: 'object',
+				      properties: {
+					      centerLat: {
+						      type: 'number'
+					      },
+					      centerLng: {
+						      type: 'number'
+					      },
+					      initialZoom: {
+						      type: 'integer'
+					      },
+					      legendType: {
+						      type: 'string'
+					      }
+				      },
+				      required: [ 'centerLat', 'centerLng', 'initialZoom', 'legendType' ]
+			      }
+		      },
+		      additionalProperties: false,
+		      required: [ 'mapName', 'mapConfig' ]
+		    },
+		    url: function() { return this.param('viewbox_url') + '/configure'; }
+		  },
+		  target: {
+		    url: function() { return this.param('viewbox_url') + '/actions'; }
+		  }
+		}
+	},
+
+	/////////////////////////////////////////////////////////
+	// Metrics action target template
+	/////////////////////////////////////////////////////////
+	metrics: {
+		data: {
+		  name: 'iFLUX Metrics',
+		  public: true,
+		  target: {
+		    url: function() { return this.param('metrics_url') + '/actions'; }
+		  }
+		}
+	}
+});
+
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+// ACTION TYPES
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+var actionTypes = new Iterator({
+	/////////////////////////////////////////////////////////
+	// Slack message action type
+	/////////////////////////////////////////////////////////
+	slackMessage: {
+		template: actionTargetTemplates.data.slack,
+		data: {
+		  name: 'Slack messages',
+		  description: 'Send a message to slack.',
+			type: function() { return this.param('iflux_schemas_url') + '/actionTypes/slackMessageSending'; },
+		  schema: {
+		    $schema: 'http://json-schema.org/draft-04/schema#',
+		    type: 'object',
+		    properties: {
+		      message: {
+		        type: 'string'
+		      }
+		    }
+		  }
+		}
+	},
+
+	/////////////////////////////////////////////////////////
+	// ViewBox marker action type
+	/////////////////////////////////////////////////////////
+	viewBoxMarker: {
+		template: actionTargetTemplates.data.viewBox,
+		data: {
+		  name: 'View marker',
+		  description: 'Add or update a view marker.',
+			type: function() { return this.param('iflux_schemas_url') + '/actionTypes/viewMarker'; },
+		  schema: {
+		    $schema: 'http://json-schema.org/draft-04/schema#',
+		    type: 'object',
+		    properties: {
+			    markerId: {
+				    type: 'string'
+			    },
+		      lat: {
+		        type: 'number'
+		      },
+			    lng: {
+				    type: 'number'
+			    },
+			    date: {
+				    type: 'date'
+			    },
+			    data: {
+				    type: 'object',
+						oneOf: [{
+							$ref: "#/definitions/bike"
+						}]
+			    }
+			  },
+			  required: [ 'markerId', 'lat', 'lng', 'date', 'data' ],
+			  additionalProperties: false,
+		    definitions: {
+			    bike: {
+				    properties: {
+					    type: {
+						    enum: ['bike']
+					    },
+					    terminalId: {
+						    type: 'string'
+					    },
+					    name: {
+						    type: 'string'
+					    },
+					    street: {
+						    type: 'string'
+					    },
+					    city: {
+						    type: 'string'
+					    },
+					    zip: {
+						    type: 'string'
+					    },
+					    freeholders: {
+						    type: 'integer'
+					    },
+					    bikes: {
+						    type: 'integer'
+					    }
+				    },
+				    required: [ 'type', 'terminalId', 'name', 'street', 'city', 'zip', 'freeholders', 'bikes' ],
+				    additionalProperties: false
+			    }
+		    }
+		  }
+		}
+	},
+
+	/////////////////////////////////////////////////////////
+	// Metrics update action type
+	/////////////////////////////////////////////////////////
+	metricsUpdate: {
+		template: actionTargetTemplates.data.metrics,
+		data: {
+			name: 'Metric update',
+			description: 'Update metrics.',
+			type: function () {
+				return this.param('iflux_schemas_url') + '/actionTypes/updateMetric';
+			},
+			schema: {
+				$schema: 'http://json-schema.org/draft-04/schema#',
+				type: 'object',
+				properties: {
+					metric: {
+						type: 'string'
+					},
+					value: {
+						type: 'number'
+					},
+					timestamp: {
+						type: 'date'
+					}
+				}
+			}
+		}
+	}
+});
+
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+// ACTION TARGETS
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+var actionTargetInstances = new Iterator({
+	/////////////////////////////////////////////////////////
+	// Slack action target
+	/////////////////////////////////////////////////////////
+	ifluxSlack: {
+		template: actionTargetTemplates.data.slack,
+	  data: {
+		  name: 'iFLUX Slack Gateway Instance',
+		  configuration: function() { return { token: this.param('slack_bot_token') }; }
+	  }
+	},
+
+	/////////////////////////////////////////////////////////
+	// ViewBox action target
+	/////////////////////////////////////////////////////////
+	ifluxViewBox: {
+		template: actionTargetTemplates.data.viewBox,
+	  data: {
+		  name: 'iFLUX ViewBox Publibike Instance',
+		  configuration: {
+			  mapName: 'Publibike visualization',
+			  expiration: 24 * 60 * 60 * 1000,
+			  mapConfig: {
+				  centerLat: 46.801111,
+				  centerLng: 8.226667,
+				  initialZoom: 9,
+				  legendType: 'bike'
+			  }
+		  }
+	  }
+	},
+
+	/////////////////////////////////////////////////////////
+	// Metrics action target
+	/////////////////////////////////////////////////////////
+	ifluxMetrics: {
+		template: actionTargetTemplates.data.metrics,
+	  data: {
+		  name: 'iFLUX Metrics Instance'
+	  }
+	}
+});
+
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+// RULES
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+var rules = new Iterator({
+	/////////////////////////////////////////////////////////
+	// iFLUX Publibike Movement rule
+	/////////////////////////////////////////////////////////
+	ifluxPublibikeMovementRule: {
+		data: {
+			name: 'Publibike movements',
+			description: 'Broadcast publibike movements.',
+			active: true,
+			conditions: [{
+				description: 'Detect bike movements',
+				eventTypeId: eventTypes.data.publibikeMovement
+			}],
+			transformations: [{
+				description: 'Broadcast a message on the Slack channel',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxSlack,
+				actionTypeId: actionTypes.data.slackMessage,
+				eventTypeId: eventTypes.data.publibikeMovement,
+				fn: {
+					expression: "return { channel: 'iflux', message: 'Only ' + event.properties.new.bikes + ' bike(s) available at the station ' + event.properties.terminal.name + ', ' + event.properties.terminal.street + ', ' + event.properties.terminal.zip + ' ' + event.properties.terminal.city + '.' };",
+					sample: {
+						event: {
+							terminalid: 'asdfghjkl',
+							terminal: {
+								name: 'Y-Parc',
+								infotext: 'Parc Scientifique - Yverdon',
+								zip: '1400',
+								city: 'Yverdon-les-Bains',
+								country: 'Switzerland',
+								lat: 46.764968,
+								lng: 6.646069,
+								image: ''
+							},
+							old: {
+								freeholders: 10,
+								bikes: 3
+							},
+							new: {
+								freeholders: 11,
+								bikes: 2
+							}
+						},
+						eventSourceTemplateId: eventSourceTemplates.data.publibike
+					}
+				}
+			}, {
+				description: 'Notify a change in station to allow a visualization.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBox,
+				actionTypeId: actionTypes.data.viewBoxMarker,
+				eventTypeId: eventTypes.data.publibikeMovement,
+				fn: {
+					expression: "return { markerId: event.properties.terminal.terminalid, lat: event.properties.terminal.lat, lng: event.properties.terminal.lng, date: event.timestamp, data: { type: 'bike', name: event.properties.terminal.name, street: event.properties.terminal.street, city: event.properties.terminal.street, zip: event.properties.terminal.zip, freeholders: event.properties.new.freeholders, bikes: event.properties.new.bikes }};",
+					sample: {
+						event: {
+							terminalid: 'asdfghjkl',
+							terminal: {
+								name: 'Y-Parc',
+								infotext: 'Parc Scientifique - Yverdon',
+								zip: '1400',
+								city: 'Yverdon-les-Bains',
+								country: 'Switzerland',
+								lat: 46.764968,
+								lng: 6.646069,
+								image: ''
+							},
+							old: {
+								freeholders: 10,
+								bikes: 3
+							},
+							new: {
+								freeholders: 11,
+								bikes: 2
+							}
+						},
+						eventSourceTemplateId: eventSourceTemplates.data.publibike
+					}
+				}
+			}, {
+				description: 'Update free holders metric for each station.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTypeId: actionTypes.data.metricsUpdate,
+				eventTypeId: eventTypes.data.publibikeMovement,
+				fn: {
+					expression: "return { metric: 'io.iflux.publibike.holders.' + event.properties.terminal.terminalid, value: event.properties.new.freeholders, timestamp: event.timestamp };",
+					sample: {
+						event: {
+							terminalid: 'asdfghjkl',
+							terminal: {
+								name: 'Y-Parc',
+								infotext: 'Parc Scientifique - Yverdon',
+								zip: '1400',
+								city: 'Yverdon-les-Bains',
+								country: 'Switzerland',
+								lat: 46.764968,
+								lng: 6.646069,
+								image: ''
+							},
+							old: {
+								freeholders: 10,
+								bikes: 3
+							},
+							new: {
+								freeholders: 11,
+								bikes: 2
+							}
+						},
+						eventSourceTemplateId: eventSourceTemplates.data.publibike
+					}
+				}
+			}, {
+				description: 'Update bikes metric for each station.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTypeId: actionTypes.data.metricsUpdate,
+				eventTypeId: eventTypes.data.publibikeMovement,
+				fn: {
+					expression: "return { metric: 'io.iflux.publibike.bikes.' + event.properties.terminal.terminalid, value: event.properties.new.bikes, timestamp: event.timestamp };",
+					sample: {
+						event: {
+							terminalid: 'asdfghjkl',
+							terminal: {
+								name: 'Y-Parc',
+								infotext: 'Parc Scientifique - Yverdon',
+								zip: '1400',
+								city: 'Yverdon-les-Bains',
+								country: 'Switzerland',
+								lat: 46.764968,
+								lng: 6.646069,
+								image: ''
+							},
+							old: {
+								freeholders: 10,
+								bikes: 3
+							},
+							new: {
+								freeholders: 11,
+								bikes: 2
+							}
+						},
+						eventSourceTemplateId: eventSourceTemplates.data.publibike
+					}
+				}
+			}]
+		}
+	},
+
+	/////////////////////////////////////////////////////////
+	// iFLUX Citizen operations for all instances rule
+	/////////////////////////////////////////////////////////
+	citizenAllOperationsRule: {
+		data: {
+			name: 'Citizen operations',
+			description: 'Broadcast Citizen Operations.',
+			active: true,
+			conditions: [{
+				description: 'Detects issue creation.',
+				eventTypeId: eventTypes.data.citizenIssueCreation
+			}, {
+				description: 'Detects issue status changes.',
+				eventTypeId: eventTypes.data.citizenIssueStatusChange
+			}, {
+				description: 'Detects actions performed on issues.',
+				eventTypeId: eventTypes.data.citizenAction
+			}],
+			transformations: [{
+				description: 'Broadcast a creation message on Slack.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxSlack,
+				actionTypeId: actionTypes.data.slackMessage,
+				eventTypeId: eventTypes.data.citizenIssueCreation,
+				fn: {
+					expression: "return { channel: 'citizen', message: 'New issue created by ' + event.properties.creator + '. The problem is: ' + event.properties.description + ' and is situated at [' + event.properties.lat + ', ' + event.properties.lng + '].' };",
+					sample: {
+						event: {
+							issueId: 'asdgdgqwrasd',
+							imageUrl: '',
+							creator: 'Henri Dupont',
+							description: 'Something went wrong',
+							state: 'created',
+							issueTypeCode: 'cdn',
+							lat: 1.2345,
+							lng: 6.7890,
+							createdOn: '2015-05-12H12:34:56:000Z',
+							updatedOn: '2015-05-12H12:34:56:000Z'
+						},
+						eventSourceTemplateId: eventSourceTemplates.data.citizen
+					}
+				}
+			}, {
+				description: 'Broadcast a status change message on Slack.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxSlack,
+				actionTypeId: actionTypes.data.slackMessage,
+				eventTypeId: eventTypes.data.citizenIssueStatusChange,
+				fn: {
+					expression: "return { channel: 'citizen', message: 'The issue created by ' + event.properties.creator + ' is now in state: ' + event.properties.state + '.' };",
+					sample: {
+						event: {
+							issueId: 'asdgdgqwrasd',
+							imageUrl: '',
+							creator: 'Henri Dupont',
+							description: 'Something went wrong',
+							state: 'created',
+							issueTypeCode: 'cdn',
+							lat: 1.2345,
+							lng: 6.7890,
+							createdOn: '2015-05-12H12:34:56:000Z',
+							updatedOn: '2015-05-12H12:34:56:000Z'
+						},
+						eventSourceTemplateId: eventSourceTemplates.data.citizen
+					}
+				}
+			}, {
+				description: 'Broadcast a message on Slack for an action performed on issue.',
+				actionTargetInstanceId: actionTargetInstances.data.ifluxSlack,
+				actionTypeId: actionTypes.data.slackMessage,
+				eventTypeId: eventTypes.data.citizenAction,
+				fn: {
+					expression: "return { channel: 'citizen', message: 'The action: ' + event.properties.type + ' has been done on issue: ' + event.properties.issue + ' by ' + event.properties.user + '.' };",
+					sample: {
+						event: {
+							type: 'comment',
+							reason: 'Did something',
+							user: 'Henri Dupont',
+							issueId: 'asdgdgqwrasd',
+							issue: 'Something went wrong',
+							state: 'created',
+							date: '2015-05-12H12:34:56:000Z'
+						},
+						eventSourceTemplateId: eventSourceTemplates.data.citizen
+					}
+				}
+			}]
+		}
+	}
+});
 
 // ############################################################################################
 // END OF DATA
@@ -766,7 +1190,7 @@ var Manager = function(iterator, itemName, itemPath, options) {
 				else {
 					console.log('An error has occured in the creation of %s'.red, item.data.name);
 					console.log(item.data);
-					console.log(response.body);
+					console.log(JSON.stringify(response.body));
 				}
 			});
 		};
@@ -797,7 +1221,7 @@ var Manager = function(iterator, itemName, itemPath, options) {
 
 				else {
 					console.log('There is an error: %s'.red, response.statusCode);
-					console.log(response.body);
+					console.log(JSON.stringify(response.body));
 				}
 
 				return manager.iterate();
