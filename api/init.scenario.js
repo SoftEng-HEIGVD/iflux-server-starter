@@ -1,6 +1,6 @@
 var
 	_ = require('underscore'),
-	s = requrie('underscore.string'),
+	s = require('underscore.string'),
 	dotenv = require('dotenv'),
 	colors = require('colors'),
 	copilot = require('api-copilot');
