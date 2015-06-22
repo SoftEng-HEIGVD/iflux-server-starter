@@ -1675,7 +1675,7 @@ function prepareRules() {
 		.step('prepare the rules.', function() {
 			_.each(rules.data, function(rule, key) {
 				if (s.contains(key.toLowerCase(), 'slack')) {
-					rule.active = this.getParam('slack_active');
+					rule.data.active = this.param('slack_active');
 				}
 
 				_.each(rule.data.conditions, function(condition) {
