@@ -1,8 +1,0 @@
-#!/bin/sh
-
-api-copilot run \
-	-p iflux_url="http://$IFLUXSRV_PORT_3000_TCP_ADDR:$IFLUXSRV_PORT_3000_TCP_PORT" \
-	-p slack_url="http://$IFLUXSLACK_PORT_3000_TCP_ADDR:$IFLUXSLACK_PORT_3000_TCP_PORT" \
-	-p metrics_url="http://$IFLUXMETRICS_PORT_3000_TCP_ADDR:$IFLUXMETRICS_PORT_3000_TCP_PORT" \
-	-p viewer_url="http://$IFLUXMAPBOX_PORT_3000_TCP_ADDR:$IFLUXMAPBOX_PORT_3000_TCP_PORT" \
-	-p enable_slack=$ENABLE_SLACK

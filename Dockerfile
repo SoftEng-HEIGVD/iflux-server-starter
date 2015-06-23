@@ -11,11 +11,10 @@ RUN mkdir -p /nodejs/iflux-starter && cp -a /tmp/node_modules /nodejs/iflux-star
 ADD . /nodejs/iflux-starter
 
 RUN useradd -m -r -U iflux \
-	&& chown -R iflux:iflux /nodejs/iflux-starter \
-	&& chmod +x /nodejs/iflux-starter/run.sh
+	&& chown -R iflux:iflux /nodejs/iflux-starter
 
 USER iflux
 
 WORKDIR /nodejs/iflux-starter
 
-CMD ["./run.sh"]
+CMD ["npm", "start"]
