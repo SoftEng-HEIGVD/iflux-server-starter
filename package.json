@@ -1,18 +1,24 @@
 {
   "name": "iflux-server-starter",
-  "version": "0.0.4",
   "description": "iFLUX Dockerized",
-  "main": "index.js",
+  "version": "0.0.4",
+  "private": true,
+  "author": {
+    "name": "Laurent Prevost",
+    "email": "laurent.prevost@heig-vd.ch"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/SoftEng-HEIGVD/iflux-server-starter.git"
   },
-  "author": "Laurent Prevost <laurent.prevost@heig-vd.ch>",
   "license": "MIT",
+  "homepage": "https://github.com/SoftEng-HEIGVD/iflux-server-starter",
   "bugs": {
     "url": "https://github.com/SoftEng-HEIGVD/iflux-server-starter/issues"
   },
-  "homepage": "https://github.com/SoftEng-HEIGVD/iflux-server-starter",
+  "scripts": {
+    "start": "api-copilot run"
+  },
   "dependencies": {
     "api-copilot": "^0.6.0",
     "colors": "^1.1.0",
