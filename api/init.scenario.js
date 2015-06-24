@@ -367,7 +367,7 @@ var eventTypes = new Iterator({
 // EVENT SOURCES
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
-var eventSourceInstances = new Iterator({
+var eventSources = new Iterator({
 	/////////////////////////////////////////////////////////
 	// Publibike event source
 	/////////////////////////////////////////////////////////
@@ -682,7 +682,7 @@ var actionTypes = new Iterator({
 // ACTION TARGETS
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
-var actionTargetInstances = new Iterator({
+var actionTargets = new Iterator({
 	/////////////////////////////////////////////////////////
 	// Slack action target
 	/////////////////////////////////////////////////////////
@@ -825,7 +825,7 @@ var rules = new Iterator({
 			}],
 			transformations: [{
 				description: 'Notify a change in station to allow a visualization.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBox,
+				actionTargetId: actionTargets.data.ifluxViewBox,
 				actionTypeId: actionTypes.data.viewBoxMarker,
 				eventTypeId: eventTypes.data.publibikeMovement,
 				fn: {
@@ -857,7 +857,7 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update free holders metric for each station.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTargetId: actionTargets.data.ifluxMetrics,
 				actionTypeId: actionTypes.data.metricsUpdate,
 				eventTypeId: eventTypes.data.publibikeMovement,
 				fn: {
@@ -889,7 +889,7 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update bikes metric for each station.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTargetId: actionTargets.data.ifluxMetrics,
 				actionTypeId: actionTypes.data.metricsUpdate,
 				eventTypeId: eventTypes.data.publibikeMovement,
 				fn: {
@@ -937,7 +937,7 @@ var rules = new Iterator({
 			}],
 			transformations: [{
 				description: 'Broadcast a message on the Slack channel',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxSlack,
+				actionTargetId: actionTargets.data.ifluxSlack,
 				actionTypeId: actionTypes.data.slackMessage,
 				eventTypeId: eventTypes.data.publibikeMovement,
 				fn: {
@@ -991,7 +991,7 @@ var rules = new Iterator({
 			}],
 			transformations: [{
 				description: 'Update the visualization of the issue creation on MapBox.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBoxCitizenAll,
+				actionTargetId: actionTargets.data.ifluxViewBoxCitizenAll,
 				actionTypeId: actionTypes.data.viewBoxMarker,
 				eventTypeId: eventTypes.data.citizenIssueCreation,
 				fn: {
@@ -1014,7 +1014,7 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update the visualization of the issue status change on MapBox.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBoxCitizenAll,
+				actionTargetId: actionTargets.data.ifluxViewBoxCitizenAll,
 				actionTypeId: actionTypes.data.viewBoxMarker,
 				eventTypeId: eventTypes.data.citizenIssueStatusChange,
 				fn: {
@@ -1037,7 +1037,7 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update the global metric that account the actions for all issues.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTargetId: actionTargets.data.ifluxMetrics,
 				actionTypeId: actionTypes.data.metricsUpdate,
 				eventTypeId: eventTypes.data.citizenAction,
 				fn: {
@@ -1050,7 +1050,7 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update the global metric that account the issue creations for all issues.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTargetId: actionTargets.data.ifluxMetrics,
 				actionTypeId: actionTypes.data.metricsUpdate,
 				eventTypeId: eventTypes.data.citizenIssueCreation,
 				fn: {
@@ -1083,7 +1083,7 @@ var rules = new Iterator({
 			}],
 			transformations: [{
 				description: 'Broadcast a creation message on Slack.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxSlack,
+				actionTargetId: actionTargets.data.ifluxSlack,
 				actionTypeId: actionTypes.data.slackMessage,
 				eventTypeId: eventTypes.data.citizenIssueCreation,
 				fn: {
@@ -1106,7 +1106,7 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Broadcast a status change message on Slack.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxSlack,
+				actionTargetId: actionTargets.data.ifluxSlack,
 				actionTypeId: actionTypes.data.slackMessage,
 				eventTypeId: eventTypes.data.citizenIssueStatusChange,
 				fn: {
@@ -1129,7 +1129,7 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Broadcast a message on Slack for an action performed on issue.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxSlack,
+				actionTargetId: actionTargets.data.ifluxSlack,
 				actionTypeId: actionTypes.data.slackMessage,
 				eventTypeId: eventTypes.data.citizenAction,
 				fn: {
@@ -1161,20 +1161,20 @@ var rules = new Iterator({
 			active: true,
 			conditions: [{
 				description: 'Detects issue creation.',
-				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenYverdon,
+				eventSourceId: eventSources.data.ifluxCitizenYverdon,
 				eventTypeId: eventTypes.data.citizenIssueCreation
 			}, {
 				description: 'Detects issue status changes.',
-				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenYverdon,
+				eventSourceId: eventSources.data.ifluxCitizenYverdon,
 				eventTypeId: eventTypes.data.citizenIssueStatusChange
 			}, {
 				description: 'Detects actions performed on issues.',
-				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenYverdon,
+				eventSourceId: eventSources.data.ifluxCitizenYverdon,
 				eventTypeId: eventTypes.data.citizenAction
 			}],
 			transformations: [{
 				description: 'Update the visualization of the issue creation in Yverdon on MapBox.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBoxCitizenYverdon,
+				actionTargetId: actionTargets.data.ifluxViewBoxCitizenYverdon,
 				actionTypeId: actionTypes.data.viewBoxMarker,
 				eventTypeId: eventTypes.data.citizenIssueCreation,
 				fn: {
@@ -1197,7 +1197,7 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update the visualization of the issue status change in Yverdon on MapBox.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBoxCitizenYverdon,
+				actionTargetId: actionTargets.data.ifluxViewBoxCitizenYverdon,
 				actionTypeId: actionTypes.data.viewBoxMarker,
 				eventTypeId: eventTypes.data.citizenIssueStatusChange,
 				fn: {
@@ -1220,7 +1220,7 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update the global metric that account the actions for Yverdon issues.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTargetId: actionTargets.data.ifluxMetrics,
 				actionTypeId: actionTypes.data.metricsUpdate,
 				eventTypeId: eventTypes.data.citizenAction,
 				fn: {
@@ -1233,7 +1233,7 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update the global metric that account the issue creations for Yverdon issues.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTargetId: actionTargets.data.ifluxMetrics,
 				actionTypeId: actionTypes.data.metricsUpdate,
 				eventTypeId: eventTypes.data.citizenIssueCreation,
 				fn: {
@@ -1256,20 +1256,20 @@ var rules = new Iterator({
 			active: true,
 			conditions: [{
 				description: 'Detects issue creation.',
-				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenBaulmes,
+				eventSourceId: eventSources.data.ifluxCitizenBaulmes,
 				eventTypeId: eventTypes.data.citizenIssueCreation
 			}, {
 				description: 'Detects issue status changes.',
-				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenBaulmes,
+				eventSourceId: eventSources.data.ifluxCitizenBaulmes,
 				eventTypeId: eventTypes.data.citizenIssueStatusChange
 			}, {
 				description: 'Detects actions performed on issues.',
-				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenBaulmes,
+				eventSourceId: eventSources.data.ifluxCitizenBaulmes,
 				eventTypeId: eventTypes.data.citizenAction
 			}],
 			transformations: [{
 				description: 'Update the visualization of the issue creation in Baulmes on MapBox.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBoxCitizenBaulmes,
+				actionTargetId: actionTargets.data.ifluxViewBoxCitizenBaulmes,
 				actionTypeId: actionTypes.data.viewBoxMarker,
 				eventTypeId: eventTypes.data.citizenIssueCreation,
 				fn: {
@@ -1292,7 +1292,7 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update the visualization of the issue status change in Baulmes on MapBox.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBoxCitizenBaulmes,
+				actionTargetId: actionTargets.data.ifluxViewBoxCitizenBaulmes,
 				actionTypeId: actionTypes.data.viewBoxMarker,
 				eventTypeId: eventTypes.data.citizenIssueStatusChange,
 				fn: {
@@ -1315,7 +1315,7 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update the global metric that account the actions for Baulmes issues.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTargetId: actionTargets.data.ifluxMetrics,
 				actionTypeId: actionTypes.data.metricsUpdate,
 				eventTypeId: eventTypes.data.citizenAction,
 				fn: {
@@ -1328,7 +1328,7 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update the global metric that account the issue creations for Baulmes issues.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTargetId: actionTargets.data.ifluxMetrics,
 				actionTypeId: actionTypes.data.metricsUpdate,
 				eventTypeId: eventTypes.data.citizenIssueCreation,
 				fn: {
@@ -1351,20 +1351,20 @@ var rules = new Iterator({
 			active: true,
 			conditions: [{
 				description: 'Detects issue creation.',
-				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenPayerne,
+				eventSourceId: eventSources.data.ifluxCitizenPayerne,
 				eventTypeId: eventTypes.data.citizenIssueCreation
 			}, {
 				description: 'Detects issue status changes.',
-				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenPayerne,
+				eventSourceId: eventSources.data.ifluxCitizenPayerne,
 				eventTypeId: eventTypes.data.citizenIssueStatusChange
 			}, {
 				description: 'Detects actions performed on issues.',
-				eventSourceInstanceId: eventSourceInstances.data.ifluxCitizenPayerne,
+				eventSourceId: eventSources.data.ifluxCitizenPayerne,
 				eventTypeId: eventTypes.data.citizenAction
 			}],
 			transformations: [{
 				description: 'Update the visualization of the issue creation in Payerne on MapBox.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBoxCitizenPayerne,
+				actionTargetId: actionTargets.data.ifluxViewBoxCitizenPayerne,
 				actionTypeId: actionTypes.data.viewBoxMarker,
 				eventTypeId: eventTypes.data.citizenIssueCreation,
 				fn: {
@@ -1387,7 +1387,7 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update the visualization of the issue status change in Payerne on MapBox.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxViewBoxCitizenPayerne,
+				actionTargetId: actionTargets.data.ifluxViewBoxCitizenPayerne,
 				actionTypeId: actionTypes.data.viewBoxMarker,
 				eventTypeId: eventTypes.data.citizenIssueStatusChange,
 				fn: {
@@ -1410,7 +1410,7 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update the global metric that account the actions for Payerne issues.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTargetId: actionTargets.data.ifluxMetrics,
 				actionTypeId: actionTypes.data.metricsUpdate,
 				eventTypeId: eventTypes.data.citizenAction,
 				fn: {
@@ -1423,7 +1423,7 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update the global metric that account the issue creations for Payerne issues.',
-				actionTargetInstanceId: actionTargetInstances.data.ifluxMetrics,
+				actionTargetId: actionTargets.data.ifluxMetrics,
 				actionTypeId: actionTypes.data.metricsUpdate,
 				eventTypeId: eventTypes.data.citizenIssueCreation,
 				fn: {
@@ -1679,8 +1679,8 @@ function prepareRules() {
 				}
 
 				_.each(rule.data.conditions, function(condition) {
-					if (condition.eventSourceInstanceId) {
-						condition.eventSourceInstanceId = condition.eventSourceInstanceId.id;
+					if (condition.eventSourceId) {
+						condition.eventSourceId = condition.eventSourceId.id;
 					}
 
 					if (condition.eventTypeId) {
@@ -1689,8 +1689,8 @@ function prepareRules() {
 				}, this);
 
 				_.each(rule.data.transformations, function(transformation) {
-					if (transformation.actionTargetInstanceId) {
-						transformation.actionTargetInstanceId = transformation.actionTargetInstanceId.id;
+					if (transformation.actionTargetId) {
+						transformation.actionTargetId = transformation.actionTargetId.id;
 					}
 
 					if (transformation.actionTypeId) {
@@ -1723,8 +1723,8 @@ function logging() {
 			console.log(eventTypes);
 			console.log('------------------------');
 
-			console.log('event source instances');
-			console.log(eventSourceInstances);
+			console.log('event sources');
+			console.log(eventSources);
 			console.log('------------------------');
 
 			console.log('action target templates');
@@ -1735,8 +1735,8 @@ function logging() {
 			console.log(actionTypes);
 			console.log('------------------------');
 
-			console.log('action target instances');
-			console.log(actionTargetInstances);
+			console.log('action targets');
+			console.log(actionTargets);
 			console.log('------------------------');
 
 			console.log('rules');
@@ -1747,7 +1747,7 @@ function logging() {
 
 var ruleManager = new Manager(rules, 'rule', 'rules', { next: logging, extend: function(item) { return _.extend(item.data, { organizationId: organizationId }); }});
 
-var actionTargetInstanceManager = new Manager(actionTargetInstances, 'action target instance', 'actionTargetInstances', {
+var actionTargetManager = new Manager(actionTargets, 'action target', 'actionTargets', {
 	next: prepareRules,
 	getUrl: function(item, baseGetUrl) {
 		return baseGetUrl + '&actionTargetTemplateId=' + item.template.id
@@ -1761,7 +1761,7 @@ var actionTargetInstanceManager = new Manager(actionTargetInstances, 'action tar
 });
 
 var actionTypeManager = new Manager(actionTypes, 'action type', 'actionTypes', {
-	next: actionTargetInstanceManager,
+	next: actionTargetManager,
 	getUrl: function(item, baseGetUrl) {
 		return baseGetUrl + '&actionTargetTemplateId=' + item.template.id
 	},
@@ -1781,7 +1781,7 @@ var actionTargetTemplateManager = new Manager(actionTargetTemplates, 'action tar
 	}
 });
 
-var eventSourceInstanceManager = new Manager(eventSourceInstances, 'event source instance', 'eventSourceInstances', {
+var eventSourceManager = new Manager(eventSources, 'event source', 'eventSources', {
 	next: actionTargetTemplateManager,
 	getUrl: function(item, baseGetUrl) {
 		return baseGetUrl + '&eventSourceTemplateId=' + item.template.id
@@ -1795,7 +1795,7 @@ var eventSourceInstanceManager = new Manager(eventSourceInstances, 'event source
 });
 
 var eventTypeManager = new Manager(eventTypes, 'event type', 'eventTypes', {
-	next: eventSourceInstanceManager,
+	next: eventSourceManager,
 	getUrl: function(item, baseGetUrl) {
 		return baseGetUrl + '&eventSourceTemplateId=' + item.template.id
 	},
@@ -1839,12 +1839,12 @@ scenario
 			}
 		}, this);
 
-		_.each(actionTargetInstances.data, function(actionTargetInstance) {
-			if (actionTargetInstance.data.configuration && _.isFunction(actionTargetInstance.data.configuration)) {
-				actionTargetInstance.data.configuration = _.bind(actionTargetInstance.data.configuration, this)();
+		_.each(actionTargets.data, function(actionTarget) {
+			if (actionTarget.data.configuration && _.isFunction(actionTarget.data.configuration)) {
+				actionTarget.data.configuration = _.bind(actionTarget.data.configuration, this)();
 			}
 
-			console.log(actionTargetInstance);
+			console.log(actionTarget);
 		}, this);
 
 		_.each(eventTypes.data, function(eventType) {
