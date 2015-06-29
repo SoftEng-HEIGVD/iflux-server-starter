@@ -154,10 +154,11 @@ var eventTypes = new Iterator({
 	// Publibike movement event type
 	/////////////////////////////////////////////////////////
 	publibikeMovement: {
-		template: eventSourceTemplates.data.publibike,
 		data: {
 			name: 'Publibike movement event',
 			description: 'Represent a movement in the stock of bikes at any station',
+			public: true,
+			organizationId: organizationId,
 			type: function() { return this.param('iflux_schemas_url') + '/eventTypes/publibikeMovement'; },
 			schema: {
 				$schema: 'http://json-schema.org/draft-04/schema#',
@@ -226,10 +227,11 @@ var eventTypes = new Iterator({
 	// Citizen issue creation event type
 	/////////////////////////////////////////////////////////
 	citizenIssueCreation: {
-		template: eventSourceTemplates.data.citizen,
 		data: {
 			name: 'Issue creation',
 			description: 'Issue created on Citizen Engagement',
+			public: true,
+			organizationId: organizationId,
 			type: function () {
 				return this.param('iflux_schemas_url') + '/eventTypes/citizenIssue';
 			},
@@ -276,10 +278,11 @@ var eventTypes = new Iterator({
 	// Citizen issue status change event type
 	/////////////////////////////////////////////////////////
 	citizenIssueStatusChange: {
-		template: eventSourceTemplates.data.citizen,
 		data: {
 			name: 'Issue status change',
 			description: 'Issue state changed on Citizen Engagement',
+			public: true,
+			organizationId: organizationId,
 			type: function() { return this.param('iflux_schemas_url') + '/eventTypes/citizenStatus'; },
 			schema: {
 				$schema: 'http://json-schema.org/draft-04/schema#',
@@ -324,10 +327,11 @@ var eventTypes = new Iterator({
 	// Citizen action event type
 	/////////////////////////////////////////////////////////
 	citizenAction: {
-		template: eventSourceTemplates.data.citizen,
 		data: {
 			name: 'Action taken on issues',
 			description: 'Action performed on issue on Citizen Engagement',
+			public: true,
+			organizationId: organizationId,
 			type: function () {
 				return this.param('iflux_schemas_url') + '/eventTypes/citizenAction';
 			},
@@ -536,10 +540,11 @@ var actionTypes = new Iterator({
 	// Slack message action type
 	/////////////////////////////////////////////////////////
 	slackMessage: {
-		template: actionTargetTemplates.data.slack,
 		data: {
 		  name: 'Slack messages',
 		  description: 'Send a message to slack.',
+			public: true,
+			organizationId: organizationId,
 			type: function() { return this.param('iflux_schemas_url') + '/actionTypes/slackMessageSending'; },
 		  schema: {
 		    $schema: 'http://json-schema.org/draft-04/schema#',
@@ -557,10 +562,11 @@ var actionTypes = new Iterator({
 	// ViewBox marker action type
 	/////////////////////////////////////////////////////////
 	viewBoxMarker: {
-		template: actionTargetTemplates.data.viewBox,
 		data: {
 		  name: 'View marker',
 		  description: 'Add or update a view marker.',
+			public: true,
+			organizationId: organizationId,
 			type: function() { return this.param('iflux_schemas_url') + '/actionTypes/viewMarker'; },
 		  schema: {
 		    $schema: 'http://json-schema.org/draft-04/schema#',
@@ -651,10 +657,11 @@ var actionTypes = new Iterator({
 	// Metrics update action type
 	/////////////////////////////////////////////////////////
 	metricsUpdate: {
-		template: actionTargetTemplates.data.metrics,
 		data: {
 			name: 'Metric update',
 			description: 'Update metrics.',
+			public: true,
+			organizationId: organizationId,
 			type: function () {
 				return this.param('iflux_schemas_url') + '/actionTypes/updateMetric';
 			},
@@ -1761,15 +1768,7 @@ var actionTargetManager = new Manager(actionTargets, 'action target', 'actionTar
 });
 
 var actionTypeManager = new Manager(actionTypes, 'action type', 'actionTypes', {
-	next: actionTargetManager,
-	getUrl: function(item, baseGetUrl) {
-		return baseGetUrl + '&actionTargetTemplateId=' + item.template.id
-	},
-	extend: function(item) {
-		return _.extend(item.data, {
-			actionTargetTemplateId: item.template.id
-		});
-	}
+	next: actionTargetManager
 });
 
 var actionTargetTemplateManager = new Manager(actionTargetTemplates, 'action target template', 'actionTargetTemplates', {
@@ -1795,15 +1794,7 @@ var eventSourceManager = new Manager(eventSources, 'event source', 'eventSources
 });
 
 var eventTypeManager = new Manager(eventTypes, 'event type', 'eventTypes', {
-	next: eventSourceManager,
-	getUrl: function(item, baseGetUrl) {
-		return baseGetUrl + '&eventSourceTemplateId=' + item.template.id
-	},
-	extend: function(item) {
-		return _.extend(item.data, {
-			eventSourceTemplateId: item.template.id
-		});
-	}
+	next: eventSourceManager
 });
 
 var eventSourceTemplateManager = new Manager(eventSourceTemplates, 'event source template', 'eventSourceTemplates', {
