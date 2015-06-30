@@ -1,15 +1,8 @@
 var
-	_ = require('underscore'),
-	s = require('underscore.string'),
 	dotenv = require('dotenv'),
-	colors = require('colors'),
-	copilot = require('api-copilot');
+	Runner = require('iflux-populator').Runner;
 
-if (process.env.NODE_ENV != 'docker') {
-	dotenv.load();
-}
-
-var scenario = new copilot.Scenario({
+var runner = new Runner({
   name: 'Initialize iFLUX',
 	summary: 'Do what is required to setup a full setup',
 	defaultRequestOptions: {
@@ -17,76 +10,28 @@ var scenario = new copilot.Scenario({
 	}
 });
 
+if (process.env.NODE_ENV != 'docker') {
+	dotenv.load();
+}
+
 // ############################################################################################
 // START OF PARAMETERS
 // ############################################################################################
-
-scenario.addParam('iflux_api_url', {
-	default: process.env.COMMON_IFLUX_API_URL
+runner.addParams({
+	iflux_api_url: { default: process.env.COMMON_IFLUX_API_URL },
+	iflux_schemas_url: { default: process.env.IFLUX_SCHEMAS_URL },
+	iflux_admin_user: { default: process.env.IFLUX_ADMIN_USER },
+	iflux_admin_password: { default: process.env.IFLUX_ADMIN_PASSWORD },
+	slack_url: { default: process.env.SLACK_GATEWAY_URL },
+	slack_bot_token: { default: process.env.SLACK_GATEWAY_IFLUX_BOT_TOKEN },
+	slack_active: { default: process.env.COMMON_SLACK_ENABLE },
+	viewbox_url: { default: process.env.VIEWBOX_URL },
+	metrics_url: { default: process.env.METRICS_URL },
+	citizen_url: { default: process.env.CITIZEN_URL }
 });
-
-scenario.addParam('iflux_schemas_url', {
-	default: process.env.IFLUX_SCHEMAS_URL
-});
-
-scenario.addParam('iflux_admin_user', {
-	default: process.env.IFLUX_ADMIN_USER
-});
-
-scenario.addParam('iflux_admin_password', {
-	default: process.env.IFLUX_ADMIN_PASSWORD
-});
-
-scenario.addParam('slack_url', {
-	default: process.env.SLACK_GATEWAY_URL
-});
-
-scenario.addParam('slack_bot_token', {
-	default: process.env.SLACK_GATEWAY_IFLUX_BOT_TOKEN
-});
-
-scenario.addParam('slack_active', {
-	default: process.env.COMMON_SLACK_ENABLE
-})
-
-scenario.addParam('viewbox_url', {
-	default: process.env.VIEWBOX_URL
-});
-
-scenario.addParam('metrics_url', {
-	default: process.env.METRICS_URL
-});
-
-scenario.addParam('citizen_url', {
-	default: process.env.CITIZEN_URL
-});
-
 // ############################################################################################
 // END OF PARAMETERS
 // ############################################################################################
-
-var organizationId;
-
-function Iterator(data) {
-	this.data = data;
-	this.start = 0;
-
-	this.dataIdx = _.reduce(data, function(memo, value, key) {
-		memo.push(key);
-		return memo;
-	}, []);
-
-	this.next = function() {
-		if (this.start < this.dataIdx.length) {
-			this.start++;
-			return this.data[this.dataIdx[this.start - 1]];
-		}
-	};
-
-	this.hasNext = function() {
-		return this.start < this.dataIdx.length;
-	};
-}
 
 // ############################################################################################
 // START OF DATA
@@ -97,7 +42,7 @@ function Iterator(data) {
 // EVENT SOURCE TEMPLATES
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
-var eventSourceTemplates = new Iterator({
+var eventSourceTemplates = {
 	/////////////////////////////////////////////////////////
 	// Publibike event source template
 	/////////////////////////////////////////////////////////
@@ -142,14 +87,14 @@ var eventSourceTemplates = new Iterator({
 			}
 		}
 	}
-});
+};
 
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
 // EVENT TYPES
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
-var eventTypes = new Iterator({
+var eventTypes = {
 	/////////////////////////////////////////////////////////
 	// Publibike movement event type
 	/////////////////////////////////////////////////////////
@@ -158,7 +103,6 @@ var eventTypes = new Iterator({
 			name: 'Publibike movement event',
 			description: 'Represent a movement in the stock of bikes at any station',
 			public: true,
-			organizationId: organizationId,
 			type: function() { return this.param('iflux_schemas_url') + '/eventTypes/publibikeMovement'; },
 			schema: {
 				$schema: 'http://json-schema.org/draft-04/schema#',
@@ -231,7 +175,6 @@ var eventTypes = new Iterator({
 			name: 'Issue creation',
 			description: 'Issue created on Citizen Engagement',
 			public: true,
-			organizationId: organizationId,
 			type: function () {
 				return this.param('iflux_schemas_url') + '/eventTypes/citizenIssue';
 			},
@@ -282,7 +225,6 @@ var eventTypes = new Iterator({
 			name: 'Issue status change',
 			description: 'Issue state changed on Citizen Engagement',
 			public: true,
-			organizationId: organizationId,
 			type: function() { return this.param('iflux_schemas_url') + '/eventTypes/citizenStatus'; },
 			schema: {
 				$schema: 'http://json-schema.org/draft-04/schema#',
@@ -331,7 +273,6 @@ var eventTypes = new Iterator({
 			name: 'Action taken on issues',
 			description: 'Action performed on issue on Citizen Engagement',
 			public: true,
-			organizationId: organizationId,
 			type: function () {
 				return this.param('iflux_schemas_url') + '/eventTypes/citizenAction';
 			},
@@ -364,19 +305,19 @@ var eventTypes = new Iterator({
 			}
 		}
 	}
-});
+};
 
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
 // EVENT SOURCES
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
-var eventSources = new Iterator({
+var eventSources = {
 	/////////////////////////////////////////////////////////
 	// Publibike event source
 	/////////////////////////////////////////////////////////
 	ifluxPublibike: {
-		template: eventSourceTemplates.data.publibike,
+		template: eventSourceTemplates.publibike,
 		data: {
 			name: 'Publibike singleton data poller'
 		}
@@ -386,7 +327,7 @@ var eventSources = new Iterator({
 	// Citizen for Yverdon event source
 	/////////////////////////////////////////////////////////
 	ifluxCitizenYverdon: {
-		template: eventSourceTemplates.data.citizen,
+		template: eventSourceTemplates.citizen,
 	  data: {
 		  name: 'Citizen Engagement - Yverdon',
 		  configuration: {
@@ -399,7 +340,7 @@ var eventSources = new Iterator({
 	// Citizen for Baulmes event source
 	/////////////////////////////////////////////////////////
 	ifluxCitizenBaulmes: {
-		template: eventSourceTemplates.data.citizen,
+		template: eventSourceTemplates.citizen,
 	  data: {
 		  name: 'Citizen Engagement - Baulmes',
 		  configuration: {
@@ -412,7 +353,7 @@ var eventSources = new Iterator({
 	// Citizen for Payerne event source
 	/////////////////////////////////////////////////////////
 	ifluxCitizenPayerne: {
-		template: eventSourceTemplates.data.citizen,
+		template: eventSourceTemplates.citizen,
 	  data: {
 		  name: 'Citizen Engagement - Payerne',
 		  configuration: {
@@ -425,7 +366,7 @@ var eventSources = new Iterator({
 	// Citizen for All event source
 	/////////////////////////////////////////////////////////
 	ifluxCitizenAll: {
-		template: eventSourceTemplates.data.citizen,
+		template: eventSourceTemplates.citizen,
 		data: {
 			name: 'Citizen Engagement - All',
 			configuration: {
@@ -433,14 +374,14 @@ var eventSources = new Iterator({
 			}
 		}
 	}
-});
+};
 
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
 // ACTION TARGET TEMPLATES
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
-var actionTargetTemplates = new Iterator({
+var actionTargetTemplates = {
 	/////////////////////////////////////////////////////////
 	// Slack action target template
 	/////////////////////////////////////////////////////////
@@ -528,14 +469,14 @@ var actionTargetTemplates = new Iterator({
 		  }
 		}
 	}
-});
+};
 
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
 // ACTION TYPES
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
-var actionTypes = new Iterator({
+var actionTypes = {
 	/////////////////////////////////////////////////////////
 	// Slack message action type
 	/////////////////////////////////////////////////////////
@@ -544,7 +485,6 @@ var actionTypes = new Iterator({
 		  name: 'Slack messages',
 		  description: 'Send a message to slack.',
 			public: true,
-			organizationId: organizationId,
 			type: function() { return this.param('iflux_schemas_url') + '/actionTypes/slackMessageSending'; },
 		  schema: {
 		    $schema: 'http://json-schema.org/draft-04/schema#',
@@ -566,7 +506,6 @@ var actionTypes = new Iterator({
 		  name: 'View marker',
 		  description: 'Add or update a view marker.',
 			public: true,
-			organizationId: organizationId,
 			type: function() { return this.param('iflux_schemas_url') + '/actionTypes/viewMarker'; },
 		  schema: {
 		    $schema: 'http://json-schema.org/draft-04/schema#',
@@ -661,7 +600,6 @@ var actionTypes = new Iterator({
 			name: 'Metric update',
 			description: 'Update metrics.',
 			public: true,
-			organizationId: organizationId,
 			type: function () {
 				return this.param('iflux_schemas_url') + '/actionTypes/updateMetric';
 			},
@@ -682,19 +620,19 @@ var actionTypes = new Iterator({
 			}
 		}
 	}
-});
+};
 
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
 // ACTION TARGETS
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
-var actionTargets = new Iterator({
+var actionTargets = {
 	/////////////////////////////////////////////////////////
 	// Slack action target
 	/////////////////////////////////////////////////////////
 	ifluxSlack: {
-		template: actionTargetTemplates.data.slack,
+		template: actionTargetTemplates.slack,
 	  data: {
 		  name: 'iFLUX Slack Gateway Instance',
 		  configuration: function() { return { token: this.param('slack_bot_token') }; }
@@ -705,7 +643,7 @@ var actionTargets = new Iterator({
 	// ViewBox action target
 	/////////////////////////////////////////////////////////
 	ifluxViewBox: {
-		template: actionTargetTemplates.data.viewBox,
+		template: actionTargetTemplates.viewBox,
 	  data: {
 		  name: 'iFLUX ViewBox Publibike Instance',
 		  configuration: {
@@ -725,7 +663,7 @@ var actionTargets = new Iterator({
 	// Metrics action target
 	/////////////////////////////////////////////////////////
 	ifluxMetrics: {
-		template: actionTargetTemplates.data.metrics,
+		template: actionTargetTemplates.metrics,
 	  data: {
 		  name: 'iFLUX Metrics Instance'
 	  }
@@ -735,7 +673,7 @@ var actionTargets = new Iterator({
 	// ViewBox for Citizen Yverdon - action target
 	/////////////////////////////////////////////////////////
 	ifluxViewBoxCitizenYverdon: {
-		template: actionTargetTemplates.data.viewBox,
+		template: actionTargetTemplates.viewBox,
 	  data: {
 		  name: 'iFLUX ViewBox for Citizen Yverdon',
 		  configuration: {
@@ -755,7 +693,7 @@ var actionTargets = new Iterator({
 	// ViewBox for Citizen Baulmes - action target
 	/////////////////////////////////////////////////////////
 	ifluxViewBoxCitizenBaulmes: {
-		template: actionTargetTemplates.data.viewBox,
+		template: actionTargetTemplates.viewBox,
 	  data: {
 		  name: 'iFLUX ViewBox for Citizen Baulmes',
 		  configuration: {
@@ -775,7 +713,7 @@ var actionTargets = new Iterator({
 	// ViewBox for Citizen Payerne - action target
 	/////////////////////////////////////////////////////////
 	ifluxViewBoxCitizenPayerne: {
-		template: actionTargetTemplates.data.viewBox,
+		template: actionTargetTemplates.viewBox,
 	  data: {
 		  name: 'iFLUX ViewBox for Citizen Payerne',
 		  configuration: {
@@ -795,7 +733,7 @@ var actionTargets = new Iterator({
 	// ViewBox for Citizen action target
 	/////////////////////////////////////////////////////////
 	ifluxViewBoxCitizenAll: {
-		template: actionTargetTemplates.data.viewBox,
+		template: actionTargetTemplates.viewBox,
 	  data: {
 		  name: 'iFLUX ViewBox for Citizen',
 		  configuration: {
@@ -810,14 +748,14 @@ var actionTargets = new Iterator({
 		  }
 	  }
 	}
-});
+};
 
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
 // RULES
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
-var rules = new Iterator({
+var rules = {
 	/////////////////////////////////////////////////////////
 	// iFLUX Publibike Movement rule
 	/////////////////////////////////////////////////////////
@@ -828,13 +766,13 @@ var rules = new Iterator({
 			active: true,
 			conditions: [{
 				description: 'Detect bike movements',
-				eventTypeId: eventTypes.data.publibikeMovement
+				eventTypeId: eventTypes.publibikeMovement
 			}],
 			transformations: [{
 				description: 'Notify a change in station to allow a visualization.',
-				actionTargetId: actionTargets.data.ifluxViewBox,
-				actionTypeId: actionTypes.data.viewBoxMarker,
-				eventTypeId: eventTypes.data.publibikeMovement,
+				actionTargetId: actionTargets.ifluxViewBox,
+				actionTypeId: actionTypes.viewBoxMarker,
+				eventTypeId: eventTypes.publibikeMovement,
 				fn: {
 					expression: "return { markerId: event.properties.terminal.terminalid, lat: event.properties.terminal.lat, lng: event.properties.terminal.lng, date: event.timestamp, data: { type: 'bike', name: event.properties.terminal.name, street: event.properties.terminal.street, city: event.properties.terminal.street, zip: event.properties.terminal.zip, freeholders: event.properties.new.freeholders, bikes: event.properties.new.bikes }};",
 					sample: {
@@ -859,14 +797,14 @@ var rules = new Iterator({
 								bikes: 2
 							}
 						},
-						eventSourceTemplateId: eventSourceTemplates.data.publibike
+						eventSourceTemplateId: eventSourceTemplates.publibike
 					}
 				}
 			}, {
 				description: 'Update free holders metric for each station.',
-				actionTargetId: actionTargets.data.ifluxMetrics,
-				actionTypeId: actionTypes.data.metricsUpdate,
-				eventTypeId: eventTypes.data.publibikeMovement,
+				actionTargetId: actionTargets.ifluxMetrics,
+				actionTypeId: actionTypes.metricsUpdate,
+				eventTypeId: eventTypes.publibikeMovement,
 				fn: {
 					expression: "return { metric: 'io.iflux.publibike.holders.' + event.properties.terminal.terminalid, value: event.properties.new.freeholders, timestamp: event.timestamp };",
 					sample: {
@@ -891,14 +829,14 @@ var rules = new Iterator({
 								bikes: 2
 							}
 						},
-						eventSourceTemplateId: eventSourceTemplates.data.publibike
+						eventSourceTemplateId: eventSourceTemplates.publibike
 					}
 				}
 			}, {
 				description: 'Update bikes metric for each station.',
-				actionTargetId: actionTargets.data.ifluxMetrics,
-				actionTypeId: actionTypes.data.metricsUpdate,
-				eventTypeId: eventTypes.data.publibikeMovement,
+				actionTargetId: actionTargets.ifluxMetrics,
+				actionTypeId: actionTypes.metricsUpdate,
+				eventTypeId: eventTypes.publibikeMovement,
 				fn: {
 					expression: "return { metric: 'io.iflux.publibike.bikes.' + event.properties.terminal.terminalid, value: event.properties.new.bikes, timestamp: event.timestamp };",
 					sample: {
@@ -923,7 +861,7 @@ var rules = new Iterator({
 								bikes: 2
 							}
 						},
-						eventSourceTemplateId: eventSourceTemplates.data.publibike
+						eventSourceTemplateId: eventSourceTemplates.publibike
 					}
 				}
 			}]
@@ -940,13 +878,13 @@ var rules = new Iterator({
 			active: true,
 			conditions: [{
 				description: 'Detect bike movements',
-				eventTypeId: eventTypes.data.publibikeMovement
+				eventTypeId: eventTypes.publibikeMovement
 			}],
 			transformations: [{
 				description: 'Broadcast a message on the Slack channel',
-				actionTargetId: actionTargets.data.ifluxSlack,
-				actionTypeId: actionTypes.data.slackMessage,
-				eventTypeId: eventTypes.data.publibikeMovement,
+				actionTargetId: actionTargets.ifluxSlack,
+				actionTypeId: actionTypes.slackMessage,
+				eventTypeId: eventTypes.publibikeMovement,
 				fn: {
 					expression: "return { channel: 'iflux', message: 'Only ' + event.properties.new.bikes + ' bike(s) available at the station ' + event.properties.terminal.name + ', ' + event.properties.terminal.street + ', ' + event.properties.terminal.zip + ' ' + event.properties.terminal.city + '.' };",
 					sample: {
@@ -971,7 +909,7 @@ var rules = new Iterator({
 								bikes: 2
 							}
 						},
-						eventSourceTemplateId: eventSourceTemplates.data.publibike
+						eventSourceTemplateId: eventSourceTemplates.publibike
 					}
 				}
 			}]
@@ -988,19 +926,19 @@ var rules = new Iterator({
 			active: true,
 			conditions: [{
 				description: 'Detects issue creation.',
-				eventTypeId: eventTypes.data.citizenIssueCreation
+				eventTypeId: eventTypes.citizenIssueCreation
 			}, {
 				description: 'Detects issue status changes.',
-				eventTypeId: eventTypes.data.citizenIssueStatusChange
+				eventTypeId: eventTypes.citizenIssueStatusChange
 			}, {
 				description: 'Detects actions performed on issues.',
-				eventTypeId: eventTypes.data.citizenAction
+				eventTypeId: eventTypes.citizenAction
 			}],
 			transformations: [{
 				description: 'Update the visualization of the issue creation on MapBox.',
-				actionTargetId: actionTargets.data.ifluxViewBoxCitizenAll,
-				actionTypeId: actionTypes.data.viewBoxMarker,
-				eventTypeId: eventTypes.data.citizenIssueCreation,
+				actionTargetId: actionTargets.ifluxViewBoxCitizenAll,
+				actionTypeId: actionTypes.viewBoxMarker,
+				eventTypeId: eventTypes.citizenIssueCreation,
 				fn: {
 					expression: "return { markerId: event.properties.issueId, lat: event.properties.lat, lng: event.properties.lng, date: event.properties.createdOn, data: { type: 'citizen', description: event.properties.description, imageUrl: event.properties.imageUrl, state: event.properties.state, owner: event.properties.creator, createdOn: event.properties.createdOn, updatedOn: event.properties.updatedOn, issueTypeCode: event.properties.issueTypeCode }};",
 					sample: {
@@ -1016,14 +954,14 @@ var rules = new Iterator({
 							createdOn: '2015-05-12H12:34:56:000Z',
 							updatedOn: '2015-05-12H12:34:56:000Z'
 						},
-						eventSourceTemplateId: eventSourceTemplates.data.citizen
+						eventSourceTemplateId: eventSourceTemplates.citizen
 					}
 				}
 			}, {
 				description: 'Update the visualization of the issue status change on MapBox.',
-				actionTargetId: actionTargets.data.ifluxViewBoxCitizenAll,
-				actionTypeId: actionTypes.data.viewBoxMarker,
-				eventTypeId: eventTypes.data.citizenIssueStatusChange,
+				actionTargetId: actionTargets.ifluxViewBoxCitizenAll,
+				actionTypeId: actionTypes.viewBoxMarker,
+				eventTypeId: eventTypes.citizenIssueStatusChange,
 				fn: {
 					expression: "return { markerId: event.properties.issueId, lat: event.properties.lat, lng: event.properties.lng, date: event.properties.createdOn, data: { type: 'citizen', description: event.properties.description, imageUrl: event.properties.imageUrl, state: event.properties.state, owner: event.properties.creator, createdOn: event.properties.createdOn, updatedOn: event.properties.updatedOn, issueTypeCode: event.properties.issueTypeCode }};",
 					sample: {
@@ -1039,14 +977,14 @@ var rules = new Iterator({
 							createdOn: '2015-05-12H12:34:56:000Z',
 							updatedOn: '2015-05-12H12:34:56:000Z'
 						},
-						eventSourceTemplateId: eventSourceTemplates.data.citizen
+						eventSourceTemplateId: eventSourceTemplates.citizen
 					}
 				}
 			}, {
 				description: 'Update the global metric that account the actions for all issues.',
-				actionTargetId: actionTargets.data.ifluxMetrics,
-				actionTypeId: actionTypes.data.metricsUpdate,
-				eventTypeId: eventTypes.data.citizenAction,
+				actionTargetId: actionTargets.ifluxMetrics,
+				actionTypeId: actionTypes.metricsUpdate,
+				eventTypeId: eventTypes.citizenAction,
 				fn: {
 					expression: "return { metric: 'ch.heigvd.ptl.sc.ce.actions.' + event.properties.type, timestamp: event.timestamp };",
 					sample: {
@@ -1057,9 +995,9 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update the global metric that account the issue creations for all issues.',
-				actionTargetId: actionTargets.data.ifluxMetrics,
-				actionTypeId: actionTypes.data.metricsUpdate,
-				eventTypeId: eventTypes.data.citizenIssueCreation,
+				actionTargetId: actionTargets.ifluxMetrics,
+				actionTypeId: actionTypes.metricsUpdate,
+				eventTypeId: eventTypes.citizenIssueCreation,
 				fn: {
 					expression: "return { metric: 'ch.heigvd.ptl.sc.ce.issues.creation', timestamp: event.timestamp };",
 					sample: {
@@ -1080,19 +1018,19 @@ var rules = new Iterator({
 			active: true,
 			conditions: [{
 				description: 'Detects issue creation.',
-				eventTypeId: eventTypes.data.citizenIssueCreation
+				eventTypeId: eventTypes.citizenIssueCreation
 			}, {
 				description: 'Detects issue status changes.',
-				eventTypeId: eventTypes.data.citizenIssueStatusChange
+				eventTypeId: eventTypes.citizenIssueStatusChange
 			}, {
 				description: 'Detects actions performed on issues.',
-				eventTypeId: eventTypes.data.citizenAction
+				eventTypeId: eventTypes.citizenAction
 			}],
 			transformations: [{
 				description: 'Broadcast a creation message on Slack.',
-				actionTargetId: actionTargets.data.ifluxSlack,
-				actionTypeId: actionTypes.data.slackMessage,
-				eventTypeId: eventTypes.data.citizenIssueCreation,
+				actionTargetId: actionTargets.ifluxSlack,
+				actionTypeId: actionTypes.slackMessage,
+				eventTypeId: eventTypes.citizenIssueCreation,
 				fn: {
 					expression: "return { channel: 'citizen', message: 'New issue created by ' + event.properties.creator + '. The problem is: ' + event.properties.description + ' and is situated at [' + event.properties.lat + ', ' + event.properties.lng + '].' };",
 					sample: {
@@ -1108,14 +1046,14 @@ var rules = new Iterator({
 							createdOn: '2015-05-12H12:34:56:000Z',
 							updatedOn: '2015-05-12H12:34:56:000Z'
 						},
-						eventSourceTemplateId: eventSourceTemplates.data.citizen
+						eventSourceTemplateId: eventSourceTemplates.citizen
 					}
 				}
 			}, {
 				description: 'Broadcast a status change message on Slack.',
-				actionTargetId: actionTargets.data.ifluxSlack,
-				actionTypeId: actionTypes.data.slackMessage,
-				eventTypeId: eventTypes.data.citizenIssueStatusChange,
+				actionTargetId: actionTargets.ifluxSlack,
+				actionTypeId: actionTypes.slackMessage,
+				eventTypeId: eventTypes.citizenIssueStatusChange,
 				fn: {
 					expression: "return { channel: 'citizen', message: 'The issue created by ' + event.properties.creator + ' is now in state: ' + event.properties.state + '.' };",
 					sample: {
@@ -1131,14 +1069,14 @@ var rules = new Iterator({
 							createdOn: '2015-05-12H12:34:56:000Z',
 							updatedOn: '2015-05-12H12:34:56:000Z'
 						},
-						eventSourceTemplateId: eventSourceTemplates.data.citizen
+						eventSourceTemplateId: eventSourceTemplates.citizen
 					}
 				}
 			}, {
 				description: 'Broadcast a message on Slack for an action performed on issue.',
-				actionTargetId: actionTargets.data.ifluxSlack,
-				actionTypeId: actionTypes.data.slackMessage,
-				eventTypeId: eventTypes.data.citizenAction,
+				actionTargetId: actionTargets.ifluxSlack,
+				actionTypeId: actionTypes.slackMessage,
+				eventTypeId: eventTypes.citizenAction,
 				fn: {
 					expression: "return { channel: 'citizen', message: 'The action: ' + event.properties.type + ' has been done on issue: ' + event.properties.issue + ' by ' + event.properties.user + '.' };",
 					sample: {
@@ -1151,7 +1089,7 @@ var rules = new Iterator({
 							state: 'created',
 							date: '2015-05-12H12:34:56:000Z'
 						},
-						eventSourceTemplateId: eventSourceTemplates.data.citizen
+						eventSourceTemplateId: eventSourceTemplates.citizen
 					}
 				}
 			}]
@@ -1168,22 +1106,22 @@ var rules = new Iterator({
 			active: true,
 			conditions: [{
 				description: 'Detects issue creation.',
-				eventSourceId: eventSources.data.ifluxCitizenYverdon,
-				eventTypeId: eventTypes.data.citizenIssueCreation
+				eventSourceId: eventSources.ifluxCitizenYverdon,
+				eventTypeId: eventTypes.citizenIssueCreation
 			}, {
 				description: 'Detects issue status changes.',
-				eventSourceId: eventSources.data.ifluxCitizenYverdon,
-				eventTypeId: eventTypes.data.citizenIssueStatusChange
+				eventSourceId: eventSources.ifluxCitizenYverdon,
+				eventTypeId: eventTypes.citizenIssueStatusChange
 			}, {
 				description: 'Detects actions performed on issues.',
-				eventSourceId: eventSources.data.ifluxCitizenYverdon,
-				eventTypeId: eventTypes.data.citizenAction
+				eventSourceId: eventSources.ifluxCitizenYverdon,
+				eventTypeId: eventTypes.citizenAction
 			}],
 			transformations: [{
 				description: 'Update the visualization of the issue creation in Yverdon on MapBox.',
-				actionTargetId: actionTargets.data.ifluxViewBoxCitizenYverdon,
-				actionTypeId: actionTypes.data.viewBoxMarker,
-				eventTypeId: eventTypes.data.citizenIssueCreation,
+				actionTargetId: actionTargets.ifluxViewBoxCitizenYverdon,
+				actionTypeId: actionTypes.viewBoxMarker,
+				eventTypeId: eventTypes.citizenIssueCreation,
 				fn: {
 					expression: "return { markerId: event.properties.issueId, lat: event.properties.lat, lng: event.properties.lng, date: event.properties.createdOn, data: { type: 'citizen', description: event.properties.description, imageUrl: event.properties.imageUrl, state: event.properties.state, owner: event.properties.creator, createdOn: event.properties.createdOn, updatedOn: event.properties.updatedOn, issueTypeCode: event.properties.issueTypeCode }};",
 					sample: {
@@ -1199,14 +1137,14 @@ var rules = new Iterator({
 							createdOn: '2015-05-12H12:34:56:000Z',
 							updatedOn: '2015-05-12H12:34:56:000Z'
 						},
-						eventSourceTemplateId: eventSourceTemplates.data.citizen
+						eventSourceTemplateId: eventSourceTemplates.citizen
 					}
 				}
 			}, {
 				description: 'Update the visualization of the issue status change in Yverdon on MapBox.',
-				actionTargetId: actionTargets.data.ifluxViewBoxCitizenYverdon,
-				actionTypeId: actionTypes.data.viewBoxMarker,
-				eventTypeId: eventTypes.data.citizenIssueStatusChange,
+				actionTargetId: actionTargets.ifluxViewBoxCitizenYverdon,
+				actionTypeId: actionTypes.viewBoxMarker,
+				eventTypeId: eventTypes.citizenIssueStatusChange,
 				fn: {
 					expression: "return { markerId: event.properties.issueId, lat: event.properties.lat, lng: event.properties.lng, date: event.properties.createdOn, data: { type: 'citizen', description: event.properties.description, imageUrl: event.properties.imageUrl, state: event.properties.state, owner: event.properties.creator, createdOn: event.properties.createdOn, updatedOn: event.properties.updatedOn, issueTypeCode: event.properties.issueTypeCode }};",
 					sample: {
@@ -1222,14 +1160,14 @@ var rules = new Iterator({
 							createdOn: '2015-05-12H12:34:56:000Z',
 							updatedOn: '2015-05-12H12:34:56:000Z'
 						},
-						eventSourceTemplateId: eventSourceTemplates.data.citizen
+						eventSourceTemplateId: eventSourceTemplates.citizen
 					}
 				}
 			}, {
 				description: 'Update the global metric that account the actions for Yverdon issues.',
-				actionTargetId: actionTargets.data.ifluxMetrics,
-				actionTypeId: actionTypes.data.metricsUpdate,
-				eventTypeId: eventTypes.data.citizenAction,
+				actionTargetId: actionTargets.ifluxMetrics,
+				actionTypeId: actionTypes.metricsUpdate,
+				eventTypeId: eventTypes.citizenAction,
 				fn: {
 					expression: "return { metric: 'ch.heigvd.ptl.sc.ce.yverdon.actions.' + event.properties.type, timestamp: event.timestamp };",
 					sample: {
@@ -1240,9 +1178,9 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update the global metric that account the issue creations for Yverdon issues.',
-				actionTargetId: actionTargets.data.ifluxMetrics,
-				actionTypeId: actionTypes.data.metricsUpdate,
-				eventTypeId: eventTypes.data.citizenIssueCreation,
+				actionTargetId: actionTargets.ifluxMetrics,
+				actionTypeId: actionTypes.metricsUpdate,
+				eventTypeId: eventTypes.citizenIssueCreation,
 				fn: {
 					expression: "return { metric: 'ch.heigvd.ptl.sc.ce.yverdon.issues.creation', timestamp: event.timestamp };",
 					sample: {
@@ -1263,22 +1201,22 @@ var rules = new Iterator({
 			active: true,
 			conditions: [{
 				description: 'Detects issue creation.',
-				eventSourceId: eventSources.data.ifluxCitizenBaulmes,
-				eventTypeId: eventTypes.data.citizenIssueCreation
+				eventSourceId: eventSources.ifluxCitizenBaulmes,
+				eventTypeId: eventTypes.citizenIssueCreation
 			}, {
 				description: 'Detects issue status changes.',
-				eventSourceId: eventSources.data.ifluxCitizenBaulmes,
-				eventTypeId: eventTypes.data.citizenIssueStatusChange
+				eventSourceId: eventSources.ifluxCitizenBaulmes,
+				eventTypeId: eventTypes.citizenIssueStatusChange
 			}, {
 				description: 'Detects actions performed on issues.',
-				eventSourceId: eventSources.data.ifluxCitizenBaulmes,
-				eventTypeId: eventTypes.data.citizenAction
+				eventSourceId: eventSources.ifluxCitizenBaulmes,
+				eventTypeId: eventTypes.citizenAction
 			}],
 			transformations: [{
 				description: 'Update the visualization of the issue creation in Baulmes on MapBox.',
-				actionTargetId: actionTargets.data.ifluxViewBoxCitizenBaulmes,
-				actionTypeId: actionTypes.data.viewBoxMarker,
-				eventTypeId: eventTypes.data.citizenIssueCreation,
+				actionTargetId: actionTargets.ifluxViewBoxCitizenBaulmes,
+				actionTypeId: actionTypes.viewBoxMarker,
+				eventTypeId: eventTypes.citizenIssueCreation,
 				fn: {
 					expression: "return { markerId: event.properties.issueId, lat: event.properties.lat, lng: event.properties.lng, date: event.properties.createdOn, data: { type: 'citizen', description: event.properties.description, imageUrl: event.properties.imageUrl, state: event.properties.state, owner: event.properties.creator, createdOn: event.properties.createdOn, updatedOn: event.properties.updatedOn, issueTypeCode: event.properties.issueTypeCode }};",
 					sample: {
@@ -1294,14 +1232,14 @@ var rules = new Iterator({
 							createdOn: '2015-05-12H12:34:56:000Z',
 							updatedOn: '2015-05-12H12:34:56:000Z'
 						},
-						eventSourceTemplateId: eventSourceTemplates.data.citizen
+						eventSourceTemplateId: eventSourceTemplates.citizen
 					}
 				}
 			}, {
 				description: 'Update the visualization of the issue status change in Baulmes on MapBox.',
-				actionTargetId: actionTargets.data.ifluxViewBoxCitizenBaulmes,
-				actionTypeId: actionTypes.data.viewBoxMarker,
-				eventTypeId: eventTypes.data.citizenIssueStatusChange,
+				actionTargetId: actionTargets.ifluxViewBoxCitizenBaulmes,
+				actionTypeId: actionTypes.viewBoxMarker,
+				eventTypeId: eventTypes.citizenIssueStatusChange,
 				fn: {
 					expression: "return { markerId: event.properties.issueId, lat: event.properties.lat, lng: event.properties.lng, date: event.properties.createdOn, data: { type: 'citizen', description: event.properties.description, imageUrl: event.properties.imageUrl, state: event.properties.state, owner: event.properties.creator, createdOn: event.properties.createdOn, updatedOn: event.properties.updatedOn, issueTypeCode: event.properties.issueTypeCode }};",
 					sample: {
@@ -1317,14 +1255,14 @@ var rules = new Iterator({
 							createdOn: '2015-05-12H12:34:56:000Z',
 							updatedOn: '2015-05-12H12:34:56:000Z'
 						},
-						eventSourceTemplateId: eventSourceTemplates.data.citizen
+						eventSourceTemplateId: eventSourceTemplates.citizen
 					}
 				}
 			}, {
 				description: 'Update the global metric that account the actions for Baulmes issues.',
-				actionTargetId: actionTargets.data.ifluxMetrics,
-				actionTypeId: actionTypes.data.metricsUpdate,
-				eventTypeId: eventTypes.data.citizenAction,
+				actionTargetId: actionTargets.ifluxMetrics,
+				actionTypeId: actionTypes.metricsUpdate,
+				eventTypeId: eventTypes.citizenAction,
 				fn: {
 					expression: "return { metric: 'ch.heigvd.ptl.sc.ce.baulmes.actions.' + event.properties.type, timestamp: event.timestamp };",
 					sample: {
@@ -1335,9 +1273,9 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update the global metric that account the issue creations for Baulmes issues.',
-				actionTargetId: actionTargets.data.ifluxMetrics,
-				actionTypeId: actionTypes.data.metricsUpdate,
-				eventTypeId: eventTypes.data.citizenIssueCreation,
+				actionTargetId: actionTargets.ifluxMetrics,
+				actionTypeId: actionTypes.metricsUpdate,
+				eventTypeId: eventTypes.citizenIssueCreation,
 				fn: {
 					expression: "return { metric: 'ch.heigvd.ptl.sc.ce.baulmes.issues.creation', timestamp: event.timestamp };",
 					sample: {
@@ -1358,22 +1296,22 @@ var rules = new Iterator({
 			active: true,
 			conditions: [{
 				description: 'Detects issue creation.',
-				eventSourceId: eventSources.data.ifluxCitizenPayerne,
-				eventTypeId: eventTypes.data.citizenIssueCreation
+				eventSourceId: eventSources.ifluxCitizenPayerne,
+				eventTypeId: eventTypes.citizenIssueCreation
 			}, {
 				description: 'Detects issue status changes.',
-				eventSourceId: eventSources.data.ifluxCitizenPayerne,
-				eventTypeId: eventTypes.data.citizenIssueStatusChange
+				eventSourceId: eventSources.ifluxCitizenPayerne,
+				eventTypeId: eventTypes.citizenIssueStatusChange
 			}, {
 				description: 'Detects actions performed on issues.',
-				eventSourceId: eventSources.data.ifluxCitizenPayerne,
-				eventTypeId: eventTypes.data.citizenAction
+				eventSourceId: eventSources.ifluxCitizenPayerne,
+				eventTypeId: eventTypes.citizenAction
 			}],
 			transformations: [{
 				description: 'Update the visualization of the issue creation in Payerne on MapBox.',
-				actionTargetId: actionTargets.data.ifluxViewBoxCitizenPayerne,
-				actionTypeId: actionTypes.data.viewBoxMarker,
-				eventTypeId: eventTypes.data.citizenIssueCreation,
+				actionTargetId: actionTargets.ifluxViewBoxCitizenPayerne,
+				actionTypeId: actionTypes.viewBoxMarker,
+				eventTypeId: eventTypes.citizenIssueCreation,
 				fn: {
 					expression: "return { markerId: event.properties.issueId, lat: event.properties.lat, lng: event.properties.lng, date: event.properties.createdOn, data: { type: 'citizen', description: event.properties.description, imageUrl: event.properties.imageUrl, state: event.properties.state, owner: event.properties.creator, createdOn: event.properties.createdOn, updatedOn: event.properties.updatedOn, issueTypeCode: event.properties.issueTypeCode }};",
 					sample: {
@@ -1389,14 +1327,14 @@ var rules = new Iterator({
 							createdOn: '2015-05-12H12:34:56:000Z',
 							updatedOn: '2015-05-12H12:34:56:000Z'
 						},
-						eventSourceTemplateId: eventSourceTemplates.data.citizen
+						eventSourceTemplateId: eventSourceTemplates.citizen
 					}
 				}
 			}, {
 				description: 'Update the visualization of the issue status change in Payerne on MapBox.',
-				actionTargetId: actionTargets.data.ifluxViewBoxCitizenPayerne,
-				actionTypeId: actionTypes.data.viewBoxMarker,
-				eventTypeId: eventTypes.data.citizenIssueStatusChange,
+				actionTargetId: actionTargets.ifluxViewBoxCitizenPayerne,
+				actionTypeId: actionTypes.viewBoxMarker,
+				eventTypeId: eventTypes.citizenIssueStatusChange,
 				fn: {
 					expression: "return { markerId: event.properties.issueId, lat: event.properties.lat, lng: event.properties.lng, date: event.properties.createdOn, data: { type: 'citizen', description: event.properties.description, imageUrl: event.properties.imageUrl, state: event.properties.state, owner: event.properties.creator, createdOn: event.properties.createdOn, updatedOn: event.properties.updatedOn, issueTypeCode: event.properties.issueTypeCode }};",
 					sample: {
@@ -1412,14 +1350,14 @@ var rules = new Iterator({
 							createdOn: '2015-05-12H12:34:56:000Z',
 							updatedOn: '2015-05-12H12:34:56:000Z'
 						},
-						eventSourceTemplateId: eventSourceTemplates.data.citizen
+						eventSourceTemplateId: eventSourceTemplates.citizen
 					}
 				}
 			}, {
 				description: 'Update the global metric that account the actions for Payerne issues.',
-				actionTargetId: actionTargets.data.ifluxMetrics,
-				actionTypeId: actionTypes.data.metricsUpdate,
-				eventTypeId: eventTypes.data.citizenAction,
+				actionTargetId: actionTargets.ifluxMetrics,
+				actionTypeId: actionTypes.metricsUpdate,
+				eventTypeId: eventTypes.citizenAction,
 				fn: {
 					expression: "return { metric: 'ch.heigvd.ptl.sc.ce.payerne.actions.' + event.properties.type, timestamp: event.timestamp };",
 					sample: {
@@ -1430,9 +1368,9 @@ var rules = new Iterator({
 				}
 			}, {
 				description: 'Update the global metric that account the issue creations for Payerne issues.',
-				actionTargetId: actionTargets.data.ifluxMetrics,
-				actionTypeId: actionTypes.data.metricsUpdate,
-				eventTypeId: eventTypes.data.citizenIssueCreation,
+				actionTargetId: actionTargets.ifluxMetrics,
+				actionTypeId: actionTypes.metricsUpdate,
+				eventTypeId: eventTypes.citizenIssueCreation,
 				fn: {
 					expression: "return { metric: 'ch.heigvd.ptl.sc.ce.payerne.issues.creation', timestamp: event.timestamp };",
 					sample: {
@@ -1442,432 +1380,27 @@ var rules = new Iterator({
 			}]
 		}
 	}
-});
+};
 
 // ############################################################################################
 // END OF DATA
 // ############################################################################################
 
-function extractId(response) {
-	var locationParts = response.headers.location.split('/');
-	return parseInt(locationParts[locationParts.length - 1]);
-}
+// ############################################################################################
+// SETUP DATA IN THE RUNNER
+// ############################################################################################
 
-function extractGenId(response) {
-	return response.headers['x-iflux-generated-id'];
-}
+runner.addActionTargetTemplates(actionTargetTemplates);
+runner.addActionTypes(actionTypes);
+runner.addActionTargets(actionTargets);
+runner.addEventSourceTemplates(eventSourceTemplates);
+runner.addEventTypes(eventTypes);
+runner.addEventSources(eventSources);
+runner.addRules(rules);
 
-function jwtRequestFilterFactory(jwtToken) {
-	return function(requestOptions) {
-		requestOptions.headers = {
-			'Authorization': 'bearer ' + jwtToken
-		};
-
-		// the filter function must return the updated request options
-		return requestOptions;
-	}
-}
-
-var Manager = function(iterator, itemName, itemPath, options) {
-	var manager = this;
-
-	this.iterator = iterator;
-	this.itemName = itemName;
-	this.itemPath = itemPath;
-
-	if (options) {
-		if (options.next) {
-			this.next = options.next;
-		}
-
-		if (options.extend) {
-			this.extend = options.extend;
-		}
-
-		if (options.getUrl) {
-			this.getUrl = options.getUrl;
-		}
-	}
-
-	this.iterate = function() {
-		if (manager.iterator.hasNext()) {
-			return manager.find(manager.iterator.next());
-		}
-		else {
-			//return iterateActionTypes();
-			if (manager.next) {
-				if (_.isFunction(manager.next)) {
-					return manager.next();
-				}
-				else {
-					return manager.next.iterate();
-				}
-			}
-		}
-	};
-
-	this.find = function(item, retry) {
-		var retryText = retry ? 'retry: ' : '';
-
-		return scenario
-			.step(retryText + 'find ' + manager.itemName + ': ' + item.data.name, function () {
-				var baseGetUrl = '/' + manager.itemPath + '?name=' + item.data.name;
-				return this.get({
-					url: manager.getUrl ? manager.getUrl(item, baseGetUrl) : baseGetUrl
-				});
-			})
-			.step(retryText + 'check ' + manager.itemName + ' found: ' + item.data.name, function (response) {
-				if (item.searchOnly) {
-					if (response.statusCode == 200 && response.body.length == 1) {
-						item.id = response.body[0].id;
-						console.log('%s found with id: %s'.green, manager.itemName, item.id);
-						manager.iterate();
-					}
-					else {
-						console.log('%s: %s not found.'.red, manager.itemName, item.data.name);
-					}
-				}
-				else {
-					if (response.statusCode == 200 && response.body.length == 1) {
-						item.id = response.body[0].id;
-						console.log('%s found with id: %s'.green, manager.itemName, item.id);
-					}
-					else {
-						console.log('%s: %s not found.'.yellow, manager.itemName, item.data.name);
-						return manager.create(item);
-					}
-				}
-			})
-	};
-
-	this.create = function(item) {
-		return scenario
-			.step('try to create ' + manager.itemName + ': ' + item.data.name, function () {
-				var data = manager.extend ? manager.extend(item) : item.data;
-
-				return this.post({
-					url: '/' + manager.itemPath,
-					body: data,
-				});
-			})
-			.step('check ' + manager.itemName + ' created for: ' + item.data.name, function (response) {
-				if (response.statusCode == 201) {
-					item.id = extractId(response);
-					console.log('%s created with id: %s'.green, manager.itemName, item.id);
-					return manager.iterate();
-				}
-
-				else if (response.statusCode == 500 && response.body.message && response.body.message == 'Unable to configure the remote action target.') {
-					console.log('An error has occured in the creation of %s'.yellow, item.data.name);
-					console.log('%s'.yellow, response.body.message);
-					console.log('The iFLUX system may not behave as you expected.');
-					return manager.find(item, true);
-				}
-
-				else {
-					console.log('An error has occured in the creation of %s'.red, item.data.name);
-					console.log(item.data);
-					console.log(JSON.stringify(response.body));
-				}
-			});
-		};
-
-	this.update = function(item) {
-		return scenario
-			.step('try to update ' + manager.itemName + ': ' + item.data.name, function() {
-				return this.patch({
-					url: '/' + manager.itemPath + '/' + item.id,
-					body: manager.extend ? manager.extend(item) : item.data
-				});
-			})
-			.step('check ' + manager.itemName + ' updated for: ' + item.data.name, function(response) {
-				if (response.statusCode == 201) {
-					console.log('%s %s updated.'.green, manager.itemName, item.data.name);
-				}
-
-				else if (response.statusCode == 304) {
-					console.log('nothing updated on %s %s'.yellow, manager.itemName, item.data.name);
-				}
-
-				else if (response.statusCode == 500 && response.body.message && response.body.message == 'Unable to configure the remote action target.') {
-					console.log('An error has occured in the creation of %s'.yellow, item.data.name);
-					console.log('%s'.yellow, response.body.message);
-					console.log('The iFLUX system may not behave as you expected.');
-					return manager.find(item, true);
-				}
-
-				else {
-					console.log('There is an error: %s'.red, response.statusCode);
-					console.log(JSON.stringify(response.body));
-				}
-
-				return manager.iterate();
-			});
-	}
-}
-
-function signin(label) {
-	return scenario
-		.step(label, function() {
-			return this.post({
-				url:'/auth/signin',
-				body: {
-					email: this.param('iflux_admin_user'),
-					password: this.param('iflux_admin_password')
-				}
-			});
-		});
-}
-
-function register() {
-	return scenario
-		.step('register user', function() {
-			return this.post({
-				url: '/auth/register',
-				body: {
-					lastName: "Admin",
-					firstName: "Admin",
-					email: this.param('iflux_admin_user'),
-					password: this.param('iflux_admin_password'),
-					passwordConfirmation: this.param('iflux_admin_password')
-				},
-				expect: {
-					statusCode: 201
-				}
-			});
-		})
-		.step('check registration', function() {
-			return signin('second try to signing after registration')
-				.step('store token', function(response) {
-					this.addRequestFilter(jwtRequestFilterFactory(response.body.token));
-					return findOrganization('after registration');
-				});
-		})
-}
-
-function findOrganization(label) {
-	return scenario
-		.step('try to retrieve the organization: ' + label, function() {
-			return this.get({
-				url: '/organizations?name=iFLUX'
-			});
-		})
-		.step('check organization retrieved: ' + label, function(response) {
-			if (response.statusCode == 200 && response.body.length == 1) {
-				organizationId = response.body[0].id;
-				console.log('organization found with id: %s'.green, organizationId);
-
-				eventSourceTemplateManager.iterate();
-			}
-			else {
-				console.log('unable to retrieve the iFLUX organization'.yellow);
-				return createOrganization();
-			}
-		})
-}
-
-function createOrganization() {
-	return scenario
-		.step('try to create organization', function() {
-			return this.post({
-				url: '/organizations',
-				body: {
-					name: 'iFLUX'
-				},
-				expect: {
-					statusCode: 201
-				}
-			});
-		})
-		.step('check organization created', function(response) {
-			organizationId = extractId(response);
-			console.log('organization created with id: %s'.green, organizationId);
-
-			return eventSourceTemplateManager.iterate();
-		});
-}
-
-function prepareRules() {
-	scenario
-		.step('prepare the rules.', function() {
-			_.each(rules.data, function(rule, key) {
-				if (s.contains(key.toLowerCase(), 'slack')) {
-					rule.data.active = this.param('slack_active');
-				}
-
-				_.each(rule.data.conditions, function(condition) {
-					if (condition.eventSourceId) {
-						condition.eventSourceId = condition.eventSourceId.id;
-					}
-
-					if (condition.eventTypeId) {
-						condition.eventTypeId = condition.eventTypeId.id;
-					}
-				}, this);
-
-				_.each(rule.data.transformations, function(transformation) {
-					if (transformation.actionTargetId) {
-						transformation.actionTargetId = transformation.actionTargetId.id;
-					}
-
-					if (transformation.actionTypeId) {
-						transformation.actionTypeId = transformation.actionTypeId.id;
-					}
-
-					if (transformation.eventTypeId) {
-						transformation.eventTypeId = transformation.eventTypeId.id;
-					}
-
-					if (transformation.fn && transformation.fn.sample && transformation.fn.sample.eventSourceTemplateId) {
-						transformation.fn.sample.eventSourceTemplateId = transformation.fn.sample.eventSourceTemplateId.id;
-					}
-				}, this);
-			}, this);
-		});
-
-	//return iterateRules();
-	return ruleManager.iterate();
-}
-
-function logging() {
-	return scenario
-		.step('logging', function() {
-			console.log('event source templates');
-			console.log(eventSourceTemplates);
-			console.log('------------------------');
-
-			console.log('event types');
-			console.log(eventTypes);
-			console.log('------------------------');
-
-			console.log('event sources');
-			console.log(eventSources);
-			console.log('------------------------');
-
-			console.log('action target templates');
-			console.log(actionTargetTemplates);
-			console.log('------------------------');
-
-			console.log('action types');
-			console.log(actionTypes);
-			console.log('------------------------');
-
-			console.log('action targets');
-			console.log(actionTargets);
-			console.log('------------------------');
-
-			console.log('rules');
-			console.log(rules);
-			console.log('------------------------');
-		});
-}
-
-var ruleManager = new Manager(rules, 'rule', 'rules', { next: logging, extend: function(item) { return _.extend(item.data, { organizationId: organizationId }); }});
-
-var actionTargetManager = new Manager(actionTargets, 'action target', 'actionTargets', {
-	next: prepareRules,
-	getUrl: function(item, baseGetUrl) {
-		return baseGetUrl + '&actionTargetTemplateId=' + item.template.id
-	},
-	extend: function(item) {
-		return _.extend(item.data, {
-			organizationId: organizationId,
-			actionTargetTemplateId: item.template.id
-		});
-	}
+module.exports = runner.run({
+	baseUrlParam: 'iflux_api_url',
+	userParam: 'iflux_admin_user',
+	passwordParam: 'iflux_admin_password',
+	orgaName: 'iFLUX'
 });
-
-var actionTypeManager = new Manager(actionTypes, 'action type', 'actionTypes', {
-	next: actionTargetManager
-});
-
-var actionTargetTemplateManager = new Manager(actionTargetTemplates, 'action target template', 'actionTargetTemplates', {
-	next: actionTypeManager,
-	extend: function(item) {
-		return _.extend(item.data, {
-			organizationId: organizationId,
-		});
-	}
-});
-
-var eventSourceManager = new Manager(eventSources, 'event source', 'eventSources', {
-	next: actionTargetTemplateManager,
-	getUrl: function(item, baseGetUrl) {
-		return baseGetUrl + '&eventSourceTemplateId=' + item.template.id
-	},
-	extend: function(item) {
-		return _.extend(item.data, {
-			organizationId: organizationId,
-			eventSourceTemplateId: item.template.id
-		});
-	}
-});
-
-var eventTypeManager = new Manager(eventTypes, 'event type', 'eventTypes', {
-	next: eventSourceManager
-});
-
-var eventSourceTemplateManager = new Manager(eventSourceTemplates, 'event source template', 'eventSourceTemplates', {
-	next: eventTypeManager,
-	extend: function(item) {
-		return _.extend(item.data, {
-			organizationId: organizationId,
-		});
-	}
-});
-
-scenario
-	.step('configure base URL', function() {
-		return this.configure({
-			baseUrl: this.param('iflux_api_url')
-		});
-	})
-
-	.step('make sure all the data are well prepared.', function() {
-		_.each(eventSourceTemplates.data, function(eventSourceTemplate) {
-			if (eventSourceTemplate.data.configuration && _.isFunction(eventSourceTemplate.data.configuration.url)) {
-				eventSourceTemplate.data.configuration.url = _.bind(eventSourceTemplate.data.configuration.url, this)();
-			}
-		}, this);
-
-		_.each(actionTargetTemplates.data, function(actionTargetTemplate) {
-			if (actionTargetTemplate.data.configuration && _.isFunction(actionTargetTemplate.data.configuration.url)) {
-				actionTargetTemplate.data.configuration.url = _.bind(actionTargetTemplate.data.configuration.url, this)();
-			}
-
-			if (_.isFunction(actionTargetTemplate.data.target.url)) {
-				actionTargetTemplate.data.target.url = _.bind(actionTargetTemplate.data.target.url, this)();
-			}
-		}, this);
-
-		_.each(actionTargets.data, function(actionTarget) {
-			if (actionTarget.data.configuration && _.isFunction(actionTarget.data.configuration)) {
-				actionTarget.data.configuration = _.bind(actionTarget.data.configuration, this)();
-			}
-
-			console.log(actionTarget);
-		}, this);
-
-		_.each(eventTypes.data, function(eventType) {
-			eventType.data.type = _.bind(eventType.data.type, this)();
-		}, this)
-
-		_.each(actionTypes.data, function(actionType) {
-			actionType.data.type = _.bind(actionType.data.type, this)();
-		}, this)
-
-	})
-;
-
-signin('first try to signing')
-	.step('check authentication done', function(response) {
-		if (response.statusCode == 401) {
-			return register();
-		}
-		else {
-			this.addRequestFilter(jwtRequestFilterFactory(response.body.token));
-			return findOrganization('after first attempt to signin');
-		}
-	});
-
-module.exports = scenario;
