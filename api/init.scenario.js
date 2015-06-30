@@ -1517,15 +1517,25 @@ var Manager = function(iterator, itemName, itemPath, options) {
 				});
 			})
 			.step(retryText + 'check ' + manager.itemName + ' found: ' + item.data.name, function (response) {
-				if (response.statusCode == 200 && response.body.length == 1) {
-					item.id = response.body[0].id;
-					console.log('%s found with id: %s'.green, manager.itemName, item.id);
-
-					return manager.update(item);
+				if (item.searchOnly) {
+					if (response.statusCode == 200 && response.body.length == 1) {
+						item.id = response.body[0].id;
+						console.log('%s found with id: %s'.green, manager.itemName, item.id);
+						manager.iterate();
+					}
+					else {
+						console.log('%s: %s not found.'.red, manager.itemName, item.data.name);
+					}
 				}
 				else {
-					console.log('%s: %s not found.'.yellow, manager.itemName, item.data.name);
-					return manager.create(item);
+					if (response.statusCode == 200 && response.body.length == 1) {
+						item.id = response.body[0].id;
+						console.log('%s found with id: %s'.green, manager.itemName, item.id);
+					}
+					else {
+						console.log('%s: %s not found.'.yellow, manager.itemName, item.data.name);
+						return manager.create(item);
+					}
 				}
 			})
 	};
