@@ -27,7 +27,8 @@ runner.addParams({
 	slack_active: { default: process.env.COMMON_SLACK_ENABLE },
 	viewbox_url: { default: process.env.VIEWBOX_URL },
 	metrics_url: { default: process.env.METRICS_URL },
-	citizen_url: { default: process.env.CITIZEN_URL }
+	citizen_url: { default: process.env.CITIZEN_URL },
+	paleo_url: { default: process.env.PALEO_URL }
 });
 // ############################################################################################
 // END OF PARAMETERS
@@ -304,6 +305,16 @@ var eventTypes = {
 				}
 			}
 		}
+	},
+
+	/////////////////////////////////////////////////////////
+	// Paleo update event type
+	/////////////////////////////////////////////////////////
+	paleoUpdate: {
+		searchOnly: true,
+		data: {
+			name: 'Paleo/update'
+		}
 	}
 };
 
@@ -372,6 +383,16 @@ var eventSources = {
 			configuration: {
 				all: true
 			}
+		}
+	},
+
+	/////////////////////////////////////////////////////////
+	// Paleo car detector
+	/////////////////////////////////////////////////////////
+	paleoCarDetector: {
+		searchOnly: true,
+		data: {
+			name: 'paleoCarDetector'
 		}
 	}
 };
@@ -466,6 +487,19 @@ var actionTargetTemplates = {
 		  public: true,
 		  target: {
 		    url: function() { return this.param('metrics_url') + '/actions'; }
+		  }
+		}
+	},
+
+	/////////////////////////////////////////////////////////
+	// Paleo metrics action target template
+	/////////////////////////////////////////////////////////
+	paleoMetrics: {
+		data: {
+		  name: 'iFLUX Paleo Metrics and Viewerr',
+		  public: true,
+		  target: {
+		    url: function() { return this.param('paleo_url') + '/actions'; }
 		  }
 		}
 	}
@@ -619,6 +653,35 @@ var actionTypes = {
 				}
 			}
 		}
+	},
+
+	/////////////////////////////////////////////////////////
+	// Paleo metrics update action type
+	/////////////////////////////////////////////////////////
+	paleoMetricsUpdate: {
+		data: {
+			name: 'Paleo metric update',
+			description: 'Paleo update metrics.',
+			public: true,
+			type: function () {
+				return this.param('iflux_schemas_url') + '/actionTypes/updatePaleoMetric';
+			},
+			schema: {
+				$schema: 'http://json-schema.org/draft-04/schema#',
+				type: 'object',
+				properties: {
+					location: {
+						type: 'string'
+					},
+					value: {
+						type: 'number'
+					},
+					timestamp: {
+						type: 'date'
+					}
+				}
+			}
+		}
 	}
 };
 
@@ -666,6 +729,16 @@ var actionTargets = {
 		template: actionTargetTemplates.metrics,
 	  data: {
 		  name: 'iFLUX Metrics Instance'
+	  }
+	},
+
+	/////////////////////////////////////////////////////////
+	// Paleor metrics action target
+	/////////////////////////////////////////////////////////
+	ifluxPaleoMetrics: {
+		template: actionTargetTemplates.paleoMetrics,
+	  data: {
+		  name: 'iFLUX Paleo Metrics Instance'
 	  }
 	},
 
@@ -1375,6 +1448,37 @@ var rules = {
 					expression: "return { metric: 'ch.heigvd.ptl.sc.ce.payerne.issues.creation', timestamp: event.timestamp };",
 					sample: {
 						event: {}
+					}
+				}
+			}]
+		}
+	},
+
+	/////////////////////////////////////////////////////////
+	// Paleo car in rule
+	/////////////////////////////////////////////////////////
+	citizenPayerneOperationsRule: {
+		data: {
+			name: 'Paleo Car In',
+			description: 'Detects any cars entering the parking.',
+			active: true,
+			conditions: [{
+				description: 'Detection done from source and type.',
+				eventSourceId: eventSources.paleoCarDetector,
+				eventTypeId: eventTypes.paleoUpdate
+			}],
+			transformations: [{
+				description: 'Update the metrics ',
+				actionTargetId: actionTargets.ifluxPaleoMetrics,
+				actionTypeId: actionTypes.paleoMetricsUpdate,
+				eventTypeId: eventTypes.paleoUpdate,
+				fn: {
+					expression: "return { location: event.properties.location, timestamp: event.timestamp };",
+					sample: {
+						event: {
+							location: 'westEntry'
+						},
+						eventSourceId: eventSources.paleoCarDetector
 					}
 				}
 			}]

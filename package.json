@@ -24,7 +24,7 @@
     "colors": "^1.1.0",
     "dotenv": "^0.5.1",
     "electrolyte": "0.0.6",
-    "iflux-populator": "0.0.1",
+    "iflux-populator": "0.0.7",
     "underscore": "^1.8.2",
     "underscore.string": "^3.1.1"
   }

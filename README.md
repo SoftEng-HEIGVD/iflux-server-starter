@@ -34,6 +34,11 @@ CITIZEN_URL=http://localhost:3003
 METRICS_URL=http://localhost:3002
 
 ################
+# Paleo Related
+################
+PALEO_URL=http://localhost:3008
+
+################
 # Slack Related
 ################
 SLACK_GATEWAY_URL=http://localhost:3001
@@ -57,6 +62,7 @@ VIEWBOX_URL=http://localhost:3004
 | IFLUX_SCHEMAS_URL             | To define the base path for the event and action types. Take care the action and event types must be the same than the one configured in each project (citizen, metrics, slack and viewbox). |
 | CITIZEN_URL                   | The URL to contact the Citizen Engagement event source. |
 | METRICS_URL                   | The URL to contact the Metrics action target. |
+| PALEO_URL                     | The URL to contact the paleo action target. |
 | SLACK_GATEWAY_URL             | The URL to contact Slack action target. |
 | SLACK_GATEWAY_iFLUX_BOT_TOKEN | The iFLUX Bot Token that is used to connect to Slack. |
 | VIEWBOX_URL                   | The URL to contact ViewBox action target. |
