@@ -206,7 +206,6 @@ var rules = {
 				description: 'Update the metrics ',
 				actionTargetId: actionTargets.ifluxPaleoMetrics,
 				actionTypeId: actionTypes.paleoCarIn,
-				eventTypeId: eventTypes.paleoUpdate,
 				fn: {
 					expression: "return { location: event.properties.location, timestamp: event.timestamp };",
 					sample: {
@@ -231,7 +230,6 @@ var rules = {
 			conditions: [{
 				description: 'Detection done from source and type.',
 				eventSourceId: eventSources.paleoCarExitDetector,
-				eventTypeId: eventTypes.paleoUpdate
 			}],
 			transformations: [{
 				description: 'Update the metrics ',
