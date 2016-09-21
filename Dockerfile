@@ -10,6 +10,8 @@ RUN mkdir -p /nodejs/iflux-starter && cp -a /tmp/node_modules /nodejs/iflux-star
 
 ADD . /nodejs/iflux-starter
 
+COPY scripts/wait-for-it.sh /wait-for-it.sh
+
 RUN useradd -m -r -U iflux \
 	&& chown -R iflux:iflux /nodejs/iflux-starter
 
